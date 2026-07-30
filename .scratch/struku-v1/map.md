@@ -40,6 +40,13 @@ clears, this map hands off; it does not build.
   cross-user-queryable **ledger system-of-record**; messages route webhook→DO→D1.
   → [ADR-0001](../../docs/adr/0001-per-user-durable-object-coordination-d1-ledger.md).
   Surfaced follow-on #08 (Agents SDK vs raw DO); unblocks #03.
+- [03 · Ledger schema design](issues/03-ledger-schema.md) — D1 double-entry core:
+  **integer minor units** + `currencies.exponent` (balance integer-exact); `direction`
+  enum; **single-currency per entry** (FX/rounding only on reporting path); `currency`
+  on asset/liability accounts only; stable **account `slug`** + `is_default` as the
+  join key; append-only `status`+`reverses_entry_id` (reserves FR-LDG-05); **UUIDv7 PKs
+  + explicit `user_id` everywhere** for NFR-SEC-07.
+  → [ADR-0002](../../docs/adr/0002-double-entry-ledger-schema.md). Unblocks #06.
 
 ## Not yet specified
 

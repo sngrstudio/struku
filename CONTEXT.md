@@ -14,3 +14,39 @@ _Avoid_: pending transaction, temp entry, unconfirmed transaction
 The per-user, in-flight state carried across messages — the current onboarding step,
 an outstanding clarification question, or which pending draft is awaiting confirmation.
 _Avoid_: session, chat state
+
+**Journal entry**:
+A committed double-entry transaction in the D1 ledger — a header (date, description,
+source, single entry-level currency, status) plus two or more balanced journal lines.
+Reaches D1 only after confirmation; append-only once posted.
+_Avoid_: transaction record, ledger row
+
+**Journal line**:
+One debit or credit within a journal entry — an `account_id`, a `direction`
+(debit/credit), a positive `amount_minor`, and its own currency. Every line of an entry
+shares the entry's currency in v1.
+_Avoid_: ledger line item, posting leg
+
+**Minor units**:
+The integer representation of a money amount in a currency's smallest unit, scaled by
+that currency's exponent (IDR exponent 0 → `1500` = Rp 1.500; USD exponent 2 →
+`1234` = $12.34). All stored amounts are minor units; balance checks are integer-exact.
+_Avoid_: cents, smallest denomination
+
+**Account slug**:
+A stable canonical key on an account, unique per user, that survives display renames and
+anchors all system references — AI parsing, category mapping, onboarding — via
+`(user_id, slug)`. Default accounts carry well-known slugs (`expense_food`, `bank`, …).
+_Avoid_: account code, account key
+
+**Primary reporting currency**:
+The single currency each user picks at onboarding (default IDR) into which aggregated
+views convert non-primary amounts using the daily-cached rate. Individual entries may be
+recorded in any currency; only aggregation converts.
+_Avoid_: base currency, home currency, default currency
+
+**Reversing entry**:
+A journal entry that cancels a previously posted one by mirroring its lines, linked via
+`reverses_entry_id`; the original is marked `reversed`. The append-only mechanism that
+keeps ledger balance intact through corrections without mutating history.
+_Avoid_: void, rollback entry
