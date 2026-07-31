@@ -1,7 +1,7 @@
 # 06 — Onboarding & identity resolution
 
 Type: grilling
-Status: open
+Status: resolved
 Blocked by: 03
 
 ## Question
@@ -28,4 +28,20 @@ Deliverable: ADR describing the onboarding state machine + identity model.
 
 ## Answer
 
-_(ADR link)_
+→ [ADR-0003](../../../docs/adr/0003-onboarding-state-machine-eager-identity.md)
+
+- **Eager identity provisioning**: `users` + `channel_identities` rows created at first
+  contact, before consent; per-user DO keyed by `user_id` from message one (no second
+  DO addressing scheme, no later migration).
+- **Step order**: language (button-based, no language needed to answer) → consent
+  (explicit affirmative action required, rendered in chosen language) → display name →
+  primary currency (default-offer pattern) → timezone (default-offer pattern) →
+  confirm/edit summary (mirrors transaction confirm/edit/discard) → provisioning (seed
+  default chart of accounts + set completion marker).
+- **Completion marker**: `users.onboarding_completed_at` (nullable, unix millis) added
+  to the ADR-0002 schema — NULL gates the message router to onboarding regardless of
+  content; granular step stays in the DO's conversation context (ADR-0001), not
+  duplicated into D1.
+- **Resumability**: same-channel only (EC-ONB-01). Cross-channel resumption
+  (EC-ONB-02) is a scope boundary — deferred to the self-service linking flow (§3.11,
+  still fog), not decided here.

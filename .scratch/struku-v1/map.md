@@ -47,6 +47,14 @@ clears, this map hands off; it does not build.
   join key; append-only `status`+`reverses_entry_id` (reserves FR-LDG-05); **UUIDv7 PKs
   + explicit `user_id` everywhere** for NFR-SEC-07.
   → [ADR-0002](../../docs/adr/0002-double-entry-ledger-schema.md). Unblocks #06.
+- [06 · Onboarding & identity resolution](issues/06-onboarding-identity.md) — **eager**
+  `users`/`channel_identities` creation at first contact (DO keyed by `user_id` from
+  message one, no second addressing scheme); step order **language → consent
+  (explicit affirmative action) → name → currency → timezone → confirm/edit →
+  provisioning**; new nullable `users.onboarding_completed_at` gates the router while
+  granular step stays DO-side; resumability is same-channel only, cross-channel
+  deferred to the (still-fog) linking flow.
+  → [ADR-0003](../../docs/adr/0003-onboarding-state-machine-eager-identity.md).
 
 ## Not yet specified
 

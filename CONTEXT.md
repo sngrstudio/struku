@@ -45,6 +45,18 @@ views convert non-primary amounts using the daily-cached rate. Individual entrie
 recorded in any currency; only aggregation converts.
 _Avoid_: base currency, home currency, default currency
 
+**Onboarding**:
+The first-contact flow that provisions a new account: language, explicit consent, then
+baseline preferences (display name, primary reporting currency, timezone), ending in
+provisioning. A `users` row exists for the whole flow (minted eagerly at first contact);
+`onboarding_completed_at IS NULL` marks it still in progress.
+_Avoid_: signup, registration
+
+**Provisioning**:
+The terminal step of onboarding: seeding the default chart of accounts and setting
+`users.onboarding_completed_at`. One step within onboarding, not the whole flow.
+_Avoid_: account creation, account setup
+
 **Reversing entry**:
 A journal entry that cancels a previously posted one by mirroring its lines, linked via
 `reverses_entry_id`; the original is marked `reversed`. The append-only mechanism that
