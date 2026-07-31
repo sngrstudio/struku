@@ -4,8 +4,12 @@ import { advanceOnboarding, ONBOARDING_ENTRY_ACTION } from './onboarding/state-m
 import { isValidCurrencyCode, provisionUser } from './onboarding/provisioning';
 import {
 	INITIAL_ONBOARDING_CONTEXT,
+	type Locale,
 	type OnboardingContext,
 } from './onboarding/types';
+import { buildParseReply } from './parsing/reply';
+import type { TextParser } from './parsing/types';
+import { WorkersAiTextParser } from './parsing/workers-ai-text-parser';
 
 /**
  * Per-user coordination actor (ADR-0006), one instance per `user_id`
@@ -19,6 +23,11 @@ import {
  * -> confirm -> D1 commit. AI parse / draft / confirm land in slices 12-13.
  */
 export class Coordinator extends Agent<Env> {
+	// Overridable in tests (via runInDurableObject) to inject a fake TextParser
+	// above env.AI — the deterministic-gating-test seam the spec calls for.
+	// Defaults to the real Workers AI implementation in production.
+	textParser: TextParser = new WorkersAiTextParser(this.env.AI);
+
 	private ensureOnboardingTable(): void {
 		void this.sql`
 			CREATE TABLE IF NOT EXISTS onboarding_context (
@@ -66,11 +75,33 @@ export class Coordinator extends Agent<Env> {
 			return this.handleOnboardingMessage(message);
 		}
 
-		// Ticket 12-13 build transaction parsing/draft/confirm here. Ticket 11
-		// only wires onboarding; a returning user's messages still echo.
-		return message.kind === 'text'
-			? { kind: 'text', text: message.text }
-			: { kind: 'text', text: `[${message.kind}]` };
+		return this.handleTransactionMessage(message);
+	}
+
+	/**
+	 * Ticket 12: AI parse -> plain-language reply. No pending draft, no
+	 * confirm/edit/discard, no D1 write — that's ticket 13, built on top of
+	 * this same ParseResult. Non-text messages (image/document) aren't parsed
+	 * by TextParser (ADR-0005 is text-only); they still echo per ticket 10's
+	 * stand-in until the image pipeline exists (spec Out of Scope).
+	 */
+	private async handleTransactionMessage(
+		message: NormalizedInboundMessage,
+	): Promise<OutboundAction> {
+		if (message.kind !== 'text') {
+			return { kind: 'text', text: `[${message.kind}]` };
+		}
+
+		const profile = await this.env.DB.prepare(
+			`SELECT locale, timezone FROM users WHERE id = ?`,
+		)
+			.bind(this.name)
+			.first<{ locale: string; timezone: string }>();
+		const locale: Locale = profile?.locale.startsWith('en') ? 'en' : 'id';
+		const timezone = profile?.timezone ?? 'Asia/Jakarta';
+
+		const result = await this.textParser.parse(message.text, locale);
+		return buildParseReply(result, locale, timezone);
 	}
 
 	private async handleOnboardingMessage(

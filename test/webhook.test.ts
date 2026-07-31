@@ -2,6 +2,33 @@ import { env, SELF } from "cloudflare:test";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import callbackQueryFixture from "../.scratch/struku-v1/fixtures/telegram-callback-query.json";
 import telegramFixtures from "../.scratch/struku-v1/fixtures/telegram-updates.json";
+import { injectFakeTextParser } from "./helpers/inject-fake-text-parser";
+import type { ParseResult } from "../src/worker/parsing/types";
+
+// These tests only care about the round-trip mechanics (webhook -> gate ->
+// provider -> actor -> outbound reply), not what a real parse produces — the
+// dedicated parsing behavioral tests live in test/parsing-webhook.test.ts.
+// A canned clean-expense ParseResult stands in for ticket 10's old echo
+// stand-in, with a marker in the clarification field the tests can assert on
+// via a bogus amount that renders distinctively.
+const CANNED_RESULT: ParseResult = {
+	intent: "transaction",
+	txn_type: "expense",
+	amount: 123456,
+	currency: "IDR",
+	category: "food",
+	date: "2026-01-01",
+	clarification: null,
+};
+
+const parseCalls: string[] = [];
+
+async function injectCannedTextParser(userId: string): Promise<void> {
+	await injectFakeTextParser(env.Coordinator, userId, async (text) => {
+		parseCalls.push(text);
+		return CANNED_RESULT;
+	});
+}
 
 // Ticket 10 behavioral tests, driven at the primary seam (spec Testing
 // Decisions): POST a raw Telegram Update to the webhook route and assert on
@@ -61,6 +88,7 @@ beforeEach(() => {
 		async () => new Response(JSON.stringify({ ok: true }), { status: 200 }),
 	);
 	globalThis.fetch = fetchSpy as unknown as typeof fetch;
+	parseCalls.length = 0;
 });
 
 afterEach(() => {
@@ -96,9 +124,9 @@ describe("POST /api/telegram/webhook — round trip", () => {
 	});
 
 	// A returning, fully-onboarded user's messages skip onboarding entirely
-	// (spec user story #12) — ticket 12-13 build real transaction handling on
-	// this path; until then it still echoes, same as ticket 10's stand-in.
-	async function seedOnboardedUser(externalId: string): Promise<void> {
+	// (spec user story #12) and go through ticket 12's real (fake-injected in
+	// tests) TextParser — see injectCannedTextParser above.
+	async function seedOnboardedUser(externalId: string): Promise<string> {
 		const userId = crypto.randomUUID();
 		const now = Date.now();
 		await env.DB.batch([
@@ -110,10 +138,12 @@ describe("POST /api/telegram/webhook — round trip", () => {
 				 VALUES (?, ?, 'telegram', ?, ?)`,
 			).bind(crypto.randomUUID(), userId, externalId, now),
 		]);
+		return userId;
 	}
 
-	it("normalizes a plain-text Update and echoes it back via sendMessage for a returning user", async () => {
-		await seedOnboardedUser("900000002");
+	it("normalizes a plain-text Update and sends a reply for a returning (post-onboarding) user", async () => {
+		const userId = await seedOnboardedUser("900000002");
+		await injectCannedTextParser(userId);
 		const update = withChatId(plainTextFixture, 900000002);
 
 		const response = await SELF.fetch(
@@ -134,7 +164,7 @@ describe("POST /api/telegram/webhook — round trip", () => {
 		);
 		const body = JSON.parse(init.body as string);
 		expect(body.chat_id).toBe("900000002");
-		expect(body.text).toContain("matcha 50k");
+		expect(body.text).toContain("123.456");
 	});
 
 	it("mints a user + channel_identities row on first contact from an unknown chat", async () => {
@@ -197,8 +227,9 @@ describe("POST /api/telegram/webhook — round trip", () => {
 		expect(fetchSpy).not.toHaveBeenCalled();
 	});
 
-	it("normalizes a callback_query tap and echoes option.id back for a returning user (EC-CH-03)", async () => {
-		await seedOnboardedUser("900000005");
+	it("normalizes a callback_query tap to text and delivers it to TextParser for a returning user (EC-CH-03)", async () => {
+		const userId = await seedOnboardedUser("900000005");
+		await injectCannedTextParser(userId);
 		const update = withChatId(callbackQueryFixture, 900000005);
 
 		const response = await SELF.fetch(
@@ -212,8 +243,8 @@ describe("POST /api/telegram/webhook — round trip", () => {
 
 		expect(response.status).toBe(200);
 		expect(fetchSpy).toHaveBeenCalledTimes(1);
-		const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
-		const body = JSON.parse(init.body as string);
-		expect(body.text).toContain("confirm");
+		// EC-CH-03: the callback_query's data ("confirm") reached TextParser as
+		// plain text — structurally identical to a typed reply, per ADR-0004 §2.
+		expect(parseCalls).toContain("confirm");
 	});
 });

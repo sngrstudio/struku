@@ -29,5 +29,8 @@ export default defineConfig({
 	],
 	test: {
 		setupFiles: ["./test/apply-migrations.ts"],
+		// test/live/** is the non-gating, real-model contract suite (ticket 12) —
+		// run only via `npm run test:live` (vitest.live.config.ts), never here.
+		exclude: ["**/node_modules/**", "test/live/**"],
 	},
 });
