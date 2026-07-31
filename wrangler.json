@@ -17,28 +17,45 @@
 	"assets": {
 		"directory": "./dist/client",
 		"not_found_handling": "single-page-application"
-	}
+	},
 	/**
-	 * Smart Placement
-	 * https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
+	 * D1 — ledger system-of-record (ADR-0001/0002). Committed journal entries only.
+	 * database_id is a per-account resource created at deploy time (`wrangler d1
+	 * create struku-ledger`); the placeholder below is fine for `wrangler types`
+	 * and for local/vitest runs (miniflare simulates D1 locally, ignoring the id).
 	 */
-	// "placement": {  "mode": "smart" }
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "struku-ledger",
+			"database_id": "REPLACE_WITH_REAL_D1_ID_AT_DEPLOY",
+			"migrations_dir": "migrations"
+		}
+	],
 	/**
-	 * Bindings
-	 * Bindings allow your Worker to interact with resources on the Cloudflare Developer Platform, including
-	 * databases, object storage, AI inference, real-time communication and more.
-	 * https://developers.cloudflare.com/workers/runtime-apis/bindings/
+	 * Workers AI — free-text transaction parsing (ADR-0005).
 	 */
+	"ai": {
+		"binding": "AI"
+	},
 	/**
-	 * Environment Variables
-	 * https://developers.cloudflare.com/workers/wrangler/configuration/#environment-variables
-	 * Note: Use secrets to store sensitive data.
-	 * https://developers.cloudflare.com/workers/configuration/secrets/
+	 * Per-user coordination actor built on the Agents SDK (ADR-0006). Each Agent
+	 * instance is a SQLite-backed Durable Object addressed by user_id.
 	 */
-	// "vars": {  "MY_VARIABLE": "production_value" }
-	/**
-	 * Service Bindings (communicate between multiple Workers)
-	 * https://developers.cloudflare.com/workers/wrangler/configuration/#service-bindings
-	 */
-	// "services": [  {   "binding": "MY_SERVICE",   "service": "my-service"  } ]
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "Coordinator",
+				"class_name": "Coordinator"
+			}
+		]
+	},
+	"migrations": [
+		{
+			"tag": "v1",
+			"new_sqlite_classes": [
+				"Coordinator"
+			]
+		}
+	]
 }

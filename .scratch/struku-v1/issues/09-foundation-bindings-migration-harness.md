@@ -19,10 +19,17 @@ only) when reporting/aggregation lands — that's where a query builder earns it
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] D1 (ledger), the Agents SDK `Agent` Durable Object (with its migration), and the Workers AI (`AI`) bindings are declared in `wrangler.json`; the `agents` SDK is added to `package.json`; `wrangler types` regenerates cleanly.
-- [ ] The first D1 migration creates the ADR-0002 ledger core — `currencies`, `users`, `channel_identities`, `accounts`, `journal_entries`, `journal_lines` — plus the nullable `users.onboarding_completed_at` (ADR-0003), matching the ADR-0002 DDL: integer `amount_minor`, `direction` enum, single-currency-per-entry (denormalized onto `journal_entries.currency`), currency NOT NULL on asset/liability accounts only (CHECK), slug-anchored accounts with `is_default`, append-only `status` + `reverses_entry_id`, text UUIDv7 PKs, explicit `user_id` on every user-scoped table (including `journal_lines`) with `user_id`-leading indexes.
-- [ ] `currencies` is seeded with at least IDR (exponent 0) and USD (exponent 2).
-- [ ] The canonical default chart of accounts (ADR-0002's slug → type → default name → currency-policy table) is captured as one seed definition, to be applied at provisioning in slice 11 — not yet inserted per-user here.
-- [ ] `vitest-pool-workers` is configured; a smoke test boots the Worker with real D1 + DO bindings, applies the migration, and asserts the schema + reference seed are present — green in CI.
+- [x] D1 (ledger), the Agents SDK `Agent` Durable Object (with its migration), and the Workers AI (`AI`) bindings are declared in `wrangler.json`; the `agents` SDK is added to `package.json`; `wrangler types` regenerates cleanly.
+- [x] The first D1 migration creates the ADR-0002 ledger core — `currencies`, `users`, `channel_identities`, `accounts`, `journal_entries`, `journal_lines` — plus the nullable `users.onboarding_completed_at` (ADR-0003), matching the ADR-0002 DDL: integer `amount_minor`, `direction` enum, single-currency-per-entry (denormalized onto `journal_entries.currency`), currency NOT NULL on asset/liability accounts only (CHECK), slug-anchored accounts with `is_default`, append-only `status` + `reverses_entry_id`, text UUIDv7 PKs, explicit `user_id` on every user-scoped table (including `journal_lines`) with `user_id`-leading indexes.
+- [x] `currencies` is seeded with at least IDR (exponent 0) and USD (exponent 2).
+- [x] The canonical default chart of accounts (ADR-0002's slug → type → default name → currency-policy table) is captured as one seed definition, to be applied at provisioning in slice 11 — not yet inserted per-user here.
+- [x] `vitest-pool-workers` is configured; a smoke test boots the Worker with real D1 + DO bindings, applies the migration, and asserts the schema + reference seed are present — green in CI.
+
+**Resolution notes (implementation):**
+- Data access is no-ORM as pinned: hand-written SQL migration `migrations/0001_ledger_core.sql`.
+- Coordination-actor DO stub `Coordinator` (`src/worker/coordinator.ts`, Agents SDK) exported from the Worker entrypoint; onboarding/draft/confirm logic lands in slices 11–13.
+- Chart-of-accounts seed captured as `src/worker/ledger/chart-of-accounts.ts` (not inserted here).
+- Test harness: Vitest 4 + `@cloudflare/vitest-pool-workers` 0.19.x via the new `cloudflareTest()` plugin (the removed `defineWorkersConfig` form). `remoteBindings: false` keeps the gate hermetic — behavioural tests fake `TextParser` above `env.AI`, so AI is never called in CI.
+- **Deploy-time TODO (not slice 09):** `wrangler d1 create struku-ledger` → replace the `database_id` placeholder in `wrangler.json`; register `setWebhook` + set the `TELEGRAM_BOT_TOKEN` secret.
