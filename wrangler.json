@@ -28,7 +28,7 @@
 		{
 			"binding": "DB",
 			"database_name": "struku-ledger",
-			"database_id": "REPLACE_WITH_REAL_D1_ID_AT_DEPLOY",
+			"database_id": "ec2a3f70-a972-4caf-9c12-d835d94befdd",
 			"migrations_dir": "migrations"
 		}
 	],
