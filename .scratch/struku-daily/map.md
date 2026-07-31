@@ -72,9 +72,46 @@ yang bikin dia berhenti.*
   [verifikasi remote](issues/14-d1-aggregate-query-capability.md#verifikasi---remote-2026-08-01--caveat-1-dibayar).
   Branch `research/14-d1-aggregate` **sudah ter-merge** (`d955e91`).
 
+- [17 · Koreksi transaksi setelah commit](issues/17-post-commit-correction.md)
+  (grilling) — **ditunda, bukan ditolak; pertahanannya dipindah ke hulu.** Pemilik
+  repo: koreksi pasca-commit baru masuk akal setelah reporting ada — tak bisa
+  menunjuk transaksi yang salah tanpa cara melihatnya dulu. Jadi arah dependensi
+  yang ditulis ragu-ragu di badan tiket ("16 *mungkin* prasyarat") **dikeraskan
+  jadi pasti**: tiket koreksi nanti *blocked by*
+  [16](issues/16-reporting-query-surface.md). Sebagai gantinya, transaksi salah
+  ditahan **sebelum** masuk ledger → digraduasikan jadi
+  [22 · Simpan teks asli ke `description`](issues/22-persist-entry-description.md)
+  (tidak ke-block, **prioritas waktu** — teks asli hilang permanen tiap hari ini
+  ditunda) dan
+  [23 · Konfirmasi draft](issues/23-draft-confirmation-surface.md) (blocked by 22).
+  **Dua temuan kode yang mengubah diskusi:** balasan pasca-commit hanya *"Sip,
+  sudah dicatat!"* — user tak punya cara tahu kategorinya meleset; dan
+  `description` **tak pernah ditulis** meski ada di skema sejak migrasi pertama,
+  sehingga kata "kopi" di *"yang kopi tadi salah"* tidak ada di kolom mana pun.
+  Empat jawaban soal mekanika koreksi (jendela lebar, reversal 3 entry, jejak
+  terlihat, konfirmasi mungkin tak perlu) tercatat di tiket sebagai **arah yang
+  dicondongi — sengaja bukan keputusan**, karena dijawab sebelum bentuk masalahnya
+  terlihat. Jebakan (c) riset 14 belum jadi ancaman nyata (nol jalur tulis
+  `reversed`/`reversal` di `src/`), tapi
+  [16](issues/16-reporting-query-surface.md) tetap sebaiknya menyaring `status`
+  sejak awal.
+
 ## Not yet specified
 
 <!-- in-scope fog; graduates into tickets as the frontier advances -->
+
+- **Koreksi transaksi setelah commit — mekanikanya.**
+  [17](issues/17-post-commit-correction.md) memutuskan *kapan* (setelah
+  [16](issues/16-reporting-query-surface.md)), bukan *bagaimana*. Tetap **di
+  dalam** destination — keluhannya nyata dan belum terselesaikan; yang berubah
+  cuma urutannya. Digraduasikan jadi tiket begitu 16 resolved, karena bentuk
+  "menunjuk transaksi yang salah" bergantung pada bentuk permukaan reporting yang
+  16 putuskan. Arah yang sudah dicondongi pemilik repo (reversal penuh 3 entry,
+  jendela koreksi lebih lebar dari transaksi terakhir, jejak koreksi terlihat di
+  laporan) tercatat di § "Arah yang dicondongi" tiket 17 — **bahan grilling,
+  bukan kesepakatan**. Prasyarat diam-diamnya:
+  [22](issues/22-persist-entry-description.md), tanpa itu menunjuk transaksi
+  pakai kata-kata mustahil.
 
 - **Akurasi kategori pada pemakaian nyata.** Pemilik repo melaporkan setidaknya
   satu transaksi masuk kategori yang salah, tapi frasa persisnya tidak tercatat
@@ -100,6 +137,11 @@ yang bikin dia berhenti.*
 - **Beban konfirmasi.** Tiap transaksi sekarang wajib dikonfirmasi. Belum
   terbukti mengganggu (belum dipakai harian), tapi kalau iya, pertanyaannya
   menyentuh ADR-0004 dan flow draft. Tunggu bukti pemakaian.
+  **Sekarang disentuh dari dua arah** — jangan diputuskan terpisah di keduanya:
+  [23](issues/23-draft-confirmation-surface.md) (seberapa banyak rincian setelah
+  commit sebelum jadi berisik) dan § "Arah yang dicondongi" tiket
+  [17](issues/17-post-commit-correction.md) (apakah koreksi perlu konfirmasi
+  sendiri — condong tidak, belum diputuskan).
 - **Kategori kustom (§3.6).** Intent `category` sudah diklasifikasi tapi
   handler-nya stub. Apakah kategori bawaan (16 akun) cukup untuk pemakaian
   harian — belum terbukti. Tunggu bukti pemakaian.

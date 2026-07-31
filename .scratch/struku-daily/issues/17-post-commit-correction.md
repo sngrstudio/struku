@@ -1,7 +1,7 @@
 # 17 — Koreksi transaksi setelah commit: apa arti "salah, benerin dong"
 
 Type: grilling
-Status: open
+Status: resolved
 Blocked by: —
 
 ## Question
@@ -108,3 +108,95 @@ saja", maka pertanyaan 1 mengecil drastis — mengganti kategori tidak mengubah
 angka, sehingga "balik + posting ulang" mungkin berlebihan dan bentuk koreksi
 yang lebih ringan jadi kandidat kuat. Menjawab 1 duluan berisiko mengunci
 mekanika berat untuk masalah yang ternyata ringan.
+
+## Answer (2026-08-01)
+
+**Koreksi pasca-commit ditunda — bukan ditolak.** Ia menunggu
+[16 · Permukaan reporting & query](16-reporting-query-surface.md), dan arah
+dependensinya terbalik dari yang tertulis di badan tiket ini.
+
+### Keputusan
+
+1. **Koreksi pasca-commit tidak dibangun sekarang.** Pertahanannya dipindah ke
+   **hulu**: konfirmasi draft yang lebih baik, supaya transaksi salah tertahan
+   sebelum masuk ledger. Pemilik repo: *"Edit yang kamu maksud, itu baru bisa
+   dilakukan ketika fitur pelaporan sudah ada."*
+2. **16 adalah prasyarat keras, bukan "mungkin".** Badan tiket menulis 16
+   *"mungkin adalah prasyarat untuk bisa menunjuk mana yang salah"*. Sesi ini
+   mengubahnya jadi pasti: user tidak bisa menunjuk transaksi yang salah kalau
+   ia tidak punya cara melihat transaksinya dulu. Tiket koreksi yang akan datang
+   **blocked by 16**.
+3. **Dua perbaikan digraduasikan jadi tiket sekarang** — keduanya tidak butuh
+   reporting dan tidak butuh koreksi:
+   - [22 · Simpan teks asli transaksi ke `description`](22-persist-entry-description.md)
+     — **tidak ke-block, prioritas waktu.**
+   - [23 · Konfirmasi draft: edit bahasa natural + balasan commit berrincian](23-draft-confirmation-surface.md)
+     — inilah pertahanan yang menggantikan koreksi pasca-commit.
+
+### Kenapa 22 dipisah dan kenapa mendesak
+
+`description` sudah ada di skema sejak
+[`0001_ledger_core.sql:66`](../../../migrations/0001_ledger_core.sql) — dipesan
+ADR-0002 — tapi `INSERT` di
+[`writer.ts:84-87`](../../../src/worker/ledger/writer.ts) tidak pernah menulisnya.
+Kemungkinan besar **kelalaian tracer #1**, bukan keputusan desain.
+
+Ini dipisah karena sifatnya beda dari tiga keputusan lain di bawah: **datanya
+hilang permanen kalau ditunda.** Tiap transaksi yang dicatat tanpa `description`
+adalah teks asli yang tidak bisa direkonstruksi nanti. Kalau koreksi dibangun
+tiga bulan lagi, tiga bulan ledger tidak punya keterangan — dan flow yang
+digambar pemilik repo sendiri menaruh **"Keterangan: Warteg"** di baris pertama
+konfirmasi. Ia juga langsung memperbaiki
+[16](16-reporting-query-surface.md): laporan yang hanya bisa menampilkan
+*"belanja 25rb"* nyaris tak terbaca seminggu kemudian.
+
+### Arah yang dicondongi — BUKAN keputusan
+
+Sesi ini menjawab empat pertanyaan tiket sebelum posisinya berubah ke "tunda".
+Dicatat supaya tiket koreksi nanti tidak mulai dari nol, **tapi sengaja tidak
+diangkat jadi keputusan**: semuanya dijawab sebelum bentuk masalahnya terlihat,
+dan tiket ini sendiri memperingatkan *"jangan otomatis pilih yang paling
+lengkap"*. Perlakukan sebagai bahan grilling, bukan sebagai yang sudah disepakati.
+
+- **Jendela koreksi lebih lebar dari satu transaksi terakhir.** Skenario "lima
+  menit dan tiga transaksi kemudian baru ingat" dianggap wajar. Konsekuensinya
+  preseden LIFO ADR-0004 **tidak** otomatis pindah ke transaksi terkomit.
+- **Reversal penuh (3 entry), bukan jalur ringan untuk kategori.** Alasan yang
+  diterima: "ganti kategori tidak mengubah angka" hanya benar pada total
+  keseluruhan — begitu [16](16-reporting-query-surface.md) membuat laporan
+  per-kategori, memindahkan 25rb dari `belanja` ke `makan` mengubah **dua** angka.
+  Dua jalur koreksi juga berarti tiap field baru memaksa keputusan "jalur mana"
+  berulang kali.
+- **Jejak koreksi terlihat di laporan**, bukan disembunyikan. Ini yang mengunci
+  butir sebelumnya jadi konsisten.
+- **Konfirmasi untuk koreksi: condong tidak perlu** (nilai disebut eksplisit
+  user, tidak ada tebakan AI yang perlu dicek; koreksi sendiri adalah jaring
+  pengaman). **Belum diputuskan** — menyentuh fog "Beban konfirmasi" di map,
+  dan sengaja tidak diselesaikan lewat pintu belakang.
+
+### Temuan kode yang mengubah diskusi
+
+Diverifikasi ulang sesi ini; keempat fakta pra-grilling masih benar. Dua tambahan:
+
+- **Balasan pasca-commit tidak menyebut apa pun.** Hanya
+  `"Sip, sudah dicatat!"` ([`copy.ts:33`](../../../src/worker/draft/copy.ts)) —
+  tanpa ringkasan, id, atau kategori. User **tidak punya cara tahu** kategorinya
+  meleset. Ini yang membuat pemilik repo memilih "beri tahu langsung", dan jadi
+  isi [23](23-draft-confirmation-surface.md).
+- **`description` tidak pernah ditulis** (di atas). Akibatnya kata "kopi" di
+  *"yang kopi tadi salah"* **tidak ada di kolom mana pun** — menunjuk transaksi
+  secara natural mustahil hari ini. Jadi [22](22-persist-entry-description.md).
+
+### Catatan untuk tiket koreksi nanti
+
+Tiket ini **tidak** diperlakukan sebagai out-of-scope: koreksi pasca-commit tetap
+di dalam destination, hanya belum waktunya. Fog-nya dicatat ulang di map di bawah
+**Not yet specified**, dan digraduasikan setelah
+[16](16-reporting-query-surface.md) resolved.
+
+Jebakan (c) riset [14](14-d1-aggregate-query-capability.md) — `status` harus
+disaring atau reversal terhitung ganda — **belum jadi ancaman nyata** selama
+tidak ada jalur tulis yang menghasilkan `reversed`/`reversal` (Fakta 2: nol
+kemunculan di `src/`). Tapi [16](16-reporting-query-surface.md) sebaiknya tetap
+menyaring `status` sejak awal, supaya bentuk query-nya tidak perlu dibongkar
+begitu koreksi ada.
