@@ -1,6 +1,12 @@
 <!-- wayfinder:map -->
 # Struku v1 — Foundations Map
 
+> **Status: destination tercapai (2026-08-01).** Semua 8 decision ticket resolved
+> (ADR-0001..0006); tracer #1 (tiket 09–13) dibangun, dideploy, dan live di
+> `@StrukuBot`. Effort lanjutannya:
+> [Struku — Layak Dipakai Harian](../struku-daily/map.md), yang menggraduasikan
+> sebagian fog di bawah ini. Fog yang tidak diambil map itu tetap tinggal di sini.
+
 ## Destination
 
 All foundational architecture + build-sequencing decisions for Struku v1 (per
