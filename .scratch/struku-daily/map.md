@@ -83,16 +83,16 @@ yang bikin dia berhenti.*
   harian; kalau polanya muncul, ini bisa jadi ticket parsing tersendiri —
   terpisah dari "tidak bisa dibenerin", yang sudah ditangani
   [17 · Koreksi transaksi setelah commit](issues/17-post-commit-correction.md).
-- **Keandalan dokumen skill yang divendor.** Riset
-  [14](issues/14-d1-aggregate-query-capability.md) menemukan
-  `references/d1/gotchas.md` (ikut ter-commit di `5fa95a7`) menyebut batas baris
-  1 MB padahal halaman limits resmi menyebut 2 MB, plus batas batch yang tidak
-  ada di dokumentasi. Aturan AGENTS.md ("ambil dokumentasi terkini") sudah
-  menangani ini secara kebetulan, tapi 52k baris dokumen skill yang bisa salah
-  angka di dalam repo adalah risiko tersendiri. Belum tajam jadi tiket —
-  butuh tahu dulu seberapa luas ketidakcocokannya. (Verifikasi `--remote`
-  2026-08-01 menutup caveat #1 riset 14; caveat ini **tidak** tersentuh dan
-  tetap berdiri.)
+- ~~**Keandalan dokumen skill yang divendor.**~~ → digraduasikan jadi
+  [21 · Seberapa luas dokumen skill yang divendor salah angka](issues/21-vendored-skill-doc-reliability.md)
+  (research, 2026-08-01). Riset [14](issues/14-d1-aggregate-query-capability.md)
+  menemukan `references/d1/gotchas.md` (ikut ter-commit di `5fa95a7`) menyebut
+  batas baris 1 MB padahal halaman limits resmi menyebut 2 MB, plus batas batch
+  bertier free/paid yang **tidak ada sama sekali** di dokumentasi. Aturan
+  AGENTS.md ("ambil dokumentasi terkini") menutupnya secara kebetulan. Tiket 21
+  mengukur seberapa luas ketidakcocokannya sebelum mitigasi apa pun diputuskan —
+  **prioritas rendah, tidak memblokir apa pun**, ambil hanya saat butuh kerjaan
+  AFK.
 
 - **Nada dan persona bot.** Kalau [15](issues/15-conversational-surface.md)
   memutuskan bot boleh ngobrol, "ngobrol seperti apa" adalah pertanyaan
