@@ -58,10 +58,19 @@ yang bikin dia berhenti.*
   menyaring sama sekali; (b) filter naif `direction='debit'` mencemari breakdown
   dengan `cash` — harus lewat `accounts.type`; (c) `status` harus disaring atau
   reversal terhitung ganda (mengikat ke [17](issues/17-post-commit-correction.md)).
-  ⚠️ Query plan **baru diverifikasi lokal** — wajib dikonfirmasi ulang `--remote`
-  sebelum 16 mengunci bentuk query.
-  → [temuan lengkap](research/14-d1-aggregate-query-capability.md), commit
-  `209b6a7` di branch `research/14-d1-aggregate` (belum di-merge).
+  ✅ **Verifikasi `--remote` selesai (2026-08-01)** — caveat "baru lokal" dibayar.
+  Produksi terkonfirmasi **tidak punya `sqlite_stat1` sama sekali**, dan plan
+  remote-nya persis rencana yang salah itu. Diukur ulang pada volume realistis
+  (2000 entry): **58.116 → 7.278 VM step, 8×**, melebar seiring ledger tumbuh.
+  **Koreksi penting:** menaruh `ANALYZE` di migrasi **tidak bekerja** (diuji —
+  migrasi jalan di DB kosong, statistiknya tidak tertulis, planner balik salah
+  begitu data masuk); migrasi `0003` ditulis lalu dibuang. Statistik harus
+  di-refresh setelah ada data dan berulang → digraduasikan jadi
+  [20 · Kapan `PRAGMA optimize` dijalankan](issues/20-stats-refresh-trigger.md),
+  yang sekarang **memblokir 16**.
+  → [temuan lengkap](research/14-d1-aggregate-query-capability.md) +
+  [verifikasi remote](issues/14-d1-aggregate-query-capability.md#verifikasi---remote-2026-08-01--caveat-1-dibayar).
+  Branch `research/14-d1-aggregate` **sudah ter-merge** (`d955e91`).
 
 ## Not yet specified
 
@@ -81,7 +90,9 @@ yang bikin dia berhenti.*
   ada di dokumentasi. Aturan AGENTS.md ("ambil dokumentasi terkini") sudah
   menangani ini secara kebetulan, tapi 52k baris dokumen skill yang bisa salah
   angka di dalam repo adalah risiko tersendiri. Belum tajam jadi tiket —
-  butuh tahu dulu seberapa luas ketidakcocokannya.
+  butuh tahu dulu seberapa luas ketidakcocokannya. (Verifikasi `--remote`
+  2026-08-01 menutup caveat #1 riset 14; caveat ini **tidak** tersentuh dan
+  tetap berdiri.)
 
 - **Nada dan persona bot.** Kalau [15](issues/15-conversational-surface.md)
   memutuskan bot boleh ngobrol, "ngobrol seperti apa" adalah pertanyaan

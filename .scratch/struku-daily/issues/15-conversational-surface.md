@@ -45,3 +45,51 @@ membangun jalur paralel.
 Kalau ada keputusan, tulis sebagai **revisi ADR-0005** atau ADR baru, dan
 tambahkan istilah barunya ke [`CONTEXT.md`](../../../CONTEXT.md) lewat
 `/domain-modeling`.
+
+## Catatan pra-grilling (2026-08-01, sesi non-interaktif)
+
+Sesi non-interaktif tidak boleh me-resolve tiket `grilling` — empat pertanyaan di
+atas soal selera dan toleransi risiko pemilik repo. Tiket **tidak di-claim**.
+Yang di bawah ini murni bacaan kode, supaya sesi interaktif tidak habis di hal
+yang bisa dicek sendiri. **Tidak ada keputusan di sini.**
+
+### Koreksi kutipan di badan tiket
+
+Tiket mengutip `REPHRASE_REPLY` sebagai *"Hmm, saya kurang paham. Coba ulangi?"*.
+Teks aslinya ([`reply.ts:77-80`](../../../src/worker/parsing/reply.ts)) sudah
+lebih hangat: *"Hmm, aku belum ngerti maksudnya. Coba tulis ulang ya?"* — "aku",
+bukan "saya".
+
+Konsekuensinya untuk pertanyaan 1: opsi termurah ("balasannya yang dibuat lebih
+hangat") **sebagian sudah jalan**. Jadi bandingannya bukan *datar vs ngobrol*,
+melainkan **"sudah hangat tapi tetap satu jaring" vs "benar-benar mengenali
+sapaan sebagai sapaan"**. Pertanyaannya jadi: apakah yang mengganggu itu
+*nada*-nya (sudah ditangani) atau *tidak dikenalinya* (belum).
+
+### Tiga fakta kode yang mempersempit pilihan
+
+1. **Permukaan routing sesempit yang diharapkan.**
+   [`reply.ts:121-125`](../../../src/worker/parsing/reply.ts): `unknown` → satu
+   balasan, sisanya → lookup `STUB_REPLIES`. Menambah cabang `smalltalk` di sini
+   sepele. Biaya keputusan ini ada di **ADR-0005**, bukan di kode.
+
+2. **Asimetri yang menguntungkan pertanyaan 4.** Sejak tiket 13, Coordinator
+   **mencegat parse transaksi bersih sebelum `buildParseReply` dipanggil**
+   ([`reply.ts:82-89`](../../../src/worker/parsing/reply.ts)) — amount +
+   txn_type lengkap → langsung draft + konfirmasi. Jalur obrolan hidup di sisi
+   lain gerbang itu. Jadi risiko "uang hilang dari catatan" terkurung di
+   mis-klasifikasi **di dalam satu panggilan AI**, bukan di routing sesudahnya.
+   Asimetri yang ditanyakan tiket sudah sebagian tertanam di arsitektur.
+
+3. **"Panggilan model kedua" mahal secara arsitektur, bukan cuma latency.**
+   ADR-0005 §1 memutuskan **satu panggilan flat**, dan itu load-bearing: skema
+   bersarang bikin spiral whitespace tembus 14s di spike. Anggaran sekarang p50
+   ~1.7s / p95 ~2.4s dari 5–10s — panggilan kedua mungkin masih muat, tapi itu
+   melawan alasan asli ADR-nya, bukan sekadar menambah detik.
+
+### Urutan grilling yang disarankan
+
+**Pertanyaan 1 dulu** (intent baru vs perluas `unknown`) — jawabannya menentukan
+apakah 2, 3, 4 masih hidup. Kalau jawabannya "perluas `unknown` saja",
+pertanyaan 3 (ingatan percakapan) kemungkinan besar langsung mati dan ini
+berhenti jadi revisi ADR.

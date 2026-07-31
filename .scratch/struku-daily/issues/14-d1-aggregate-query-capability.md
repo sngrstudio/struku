@@ -153,3 +153,65 @@ dipertimbangkan: maksimum **100 bound parameter** per query dan **statement
 100 KB** — query builder yang meng-generate `IN (...)` panjang bisa menabraknya.
 `PRAGMA optimize` tetap dibutuhkan terlepas dari ORM atau bukan; itu urusan
 operasional skema, bukan layer akses data.
+
+## Verifikasi `--remote` (2026-08-01) — caveat #1 dibayar
+
+Caveat "query plan diverifikasi lokal saja" **sudah ditutup**. Akses `--remote`
+tidak lagi diblokir; probe dijalankan langsung ke `struku-ledger` produksi.
+
+**1. Temuan inti terkonfirmasi di produksi.** `SELECT name FROM sqlite_master
+WHERE name='sqlite_stat1'` mengembalikan **kosong** — produksi tidak punya
+statistik tabel sama sekali. `EXPLAIN QUERY PLAN` breakdown kategori bulanan di
+remote persis rencana yang salah itu:
+
+```
+SEARCH l USING INDEX idx_journal_lines_account (user_id=?)
+SEARCH e USING INDEX sqlite_autoindex_journal_entries_1 (id=?)
+```
+
+`idx_journal_entries_user_date` tidak muncul; rentang tanggal tidak menyaring.
+
+**2. Plan di remote hari ini tidak konklusif — dan ini penting.** Produksi baru
+berisi **2 entry / 4 line** (DB dikosongkan 2026-08-01). Setelah `PRAGMA
+optimize` dijalankan di remote, plan-nya jadi `SCAN e` + `SCAN l`, *bukan* index
+seek. Itu **bukan** regresi: pada tabel 2 baris full scan memang lebih murah dan
+planner benar. Artinya plan yang diukur di produksi kosong tidak membuktikan
+apa pun soal perilaku pada volume nyata.
+
+**3. Diukur ulang pada volume realistis** (sqlite lokal dari `migrations/0001` +
+`0002`, 2000 entry / 4000 line). Di sini efeknya bersih dan cocok dengan temuan
+riset asli:
+
+| | plan | VM steps |
+|---|---|---|
+| tanpa `sqlite_stat1` | drive dari `journal_lines`, tanggal tidak menyaring | **58.116** |
+| setelah `PRAGMA optimize` | `SEARCH e USING idx_journal_entries_user_date (user_id=? AND entry_date>? AND entry_date<?)` | **7.278** |
+
+**8× lipat**, dan rasionya **melebar** seiring ledger tumbuh: tanpa statistik
+biaya mengikuti *total* baris user, bukan baris di dalam rentang tanggal.
+Wall-clock sama-sama ~4 ms pada 2000 baris — jadi ini tidak akan terasa saat
+dipakai, tapi tetap ditagih D1 sebagai rows read.
+
+### Koreksi terhadap rekomendasi #1 riset ini
+
+Riset asli bilang *"tambahkan `PRAGMA optimize`"* sebagai item actionable, dan
+implikasi wajarnya adalah menaruhnya di migrasi. **Itu tidak akan bekerja** —
+diuji, bukan dikira-kira:
+
+- Migrasi jalan sekali, pada DB yang umumnya masih kosong.
+- `ANALYZE` pada DB kosong **tidak menulis baris sama sekali** untuk
+  `journal_entries` (diverifikasi: `sqlite_stat1` kosong untuk tabel itu).
+- Setelah DB diisi sampai 2000 entry tanpa refresh, planner **kembali** ke
+  rencana yang salah — identik dengan kondisi tanpa statistik.
+
+Migrasi `0003_analyze_stats.sql` sempat ditulis lalu **dibuang** setelah tes ini
+membuktikannya no-op.
+
+Jadi statistik harus di-refresh **setelah ledger punya data, dan berulang**
+seiring ia tumbuh — bukan sekali saat deploy. *Di mana* `PRAGMA optimize`
+dipanggil (cron trigger? sesudah commit ke-N? saat startup DO?) adalah keputusan
+desain yang belum dibuat, dan mengikat [16](16-reporting-query-surface.md).
+Sengaja **tidak** diputuskan di sesi ini — ia milik map, bukan efek samping
+verifikasi.
+
+Caveat #2 (dokumen skill divendor) tidak tersentuh dan tetap berdiri.
