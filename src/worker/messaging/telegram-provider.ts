@@ -86,9 +86,16 @@ function normalizeCallbackQuery(
 }
 
 export class TelegramProvider implements MessagingProvider {
+	// The default must be `fetch.bind(globalThis)`, not a bare `fetch`. Stored
+	// as a property and called as `this.fetchImpl(...)`, an unbound reference
+	// arrives at the runtime with `this` set to this provider instead of the
+	// global scope, and workerd rejects it with "Illegal invocation: function
+	// called with incorrect `this` reference". Miniflare is lenient here, so
+	// this only ever surfaced against the deployed Worker (500 on every
+	// outbound send). Tests still inject their own fetchImpl unaffected.
 	constructor(
 		private readonly botToken: string,
-		private readonly fetchImpl: typeof fetch = fetch,
+		private readonly fetchImpl: typeof fetch = fetch.bind(globalThis),
 	) {}
 
 	private get apiBase(): string {

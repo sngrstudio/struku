@@ -145,3 +145,27 @@ describe("TelegramProvider outbound rendering", () => {
 		});
 	});
 });
+
+describe("TelegramProvider default fetch binding", () => {
+	// Regression: the constructor's default fetchImpl was a bare `fetch`.
+	// Stored as a property and invoked as `this.fetchImpl(...)`, it reached
+	// workerd with `this` bound to the provider, which threw "Illegal
+	// invocation: function called with incorrect `this` reference" — every
+	// outbound send 500'd on the deployed Worker while miniflare stayed
+	// green. Constructing without an explicit fetchImpl must therefore yield
+	// a callable that survives being detached from its object.
+	it("defaults to a bound fetch, not the bare global", () => {
+		const defaulted = new TelegramProvider(BOT_TOKEN) as unknown as {
+			fetchImpl: typeof fetch;
+		};
+
+		expect(typeof defaulted.fetchImpl).toBe("function");
+		// Miniflare does not enforce fetch's `this` requirement, so no
+		// behavioural assertion can reproduce the production failure here —
+		// calling the detached function passes either way. What *is*
+		// checkable is provenance: a bound function is a distinct object
+		// from the global it wraps, so identity with `globalThis.fetch`
+		// means the bind was dropped and the deployed Worker will 500.
+		expect(defaulted.fetchImpl).not.toBe(globalThis.fetch);
+	});
+});
