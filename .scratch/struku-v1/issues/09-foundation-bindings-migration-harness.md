@@ -8,6 +8,15 @@ easy" prefactor — done first so the vertical slices that follow stay green.
 
 Grounded in [spec.md](../spec.md) and ADR-0001/0002/0006.
 
+**Approach note (data access) — no ORM in tracer #1.** Do **not** adopt Drizzle (or any
+ORM) here. Reasons: the strongest requirement, `user_id`-scoped tenant isolation
+(NFR-SEC-07), is not enforced by an ORM anyway — it's best served by a thin, typed,
+per-user-scoped **repository** over D1 prepared statements as a single reviewable choke
+point. The schema is small and ADR-frozen with load-bearing CHECK constraints, so migrations
+are **hand-written SQL** (verbatim ADR-0002 DDL). The Agent's embedded SQLite stays on the
+SDK's `this.sql`. Zod guards only the external AI boundary. Revisit an ORM (Drizzle-for-D1
+only) when reporting/aggregation lands — that's where a query builder earns its keep.
+
 **Blocked by:** None — can start immediately.
 
 **Status:** ready-for-agent
