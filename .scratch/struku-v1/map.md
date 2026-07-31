@@ -79,6 +79,14 @@ clears, this map hands off; it does not build.
   against real payloads (shape holds; `date` is unix **seconds** → provider ×1000 for
   millis). Pinned secret-binding convention **`TELEGRAM_BOT_TOKEN`**. Feeds the #05
   parsing spike.
+- [08 · Coordination actor: Agents SDK vs raw Durable Object](issues/08-agents-sdk-vs-raw-durable-object.md)
+  (grilling) — build the per-user actor on the **Cloudflare Agents SDK** (`Agent`
+  subclass, `getAgentByName(user_id)`). Deciding factor: SDK **multiplexes many schedules
+  over the DO's single `alarm()`** (EC-IMG-05's timeout need, free vs hand-rolled);
+  first-party over the DO+SQLite substrate ADR-0001 already chose. Guardrail: sits
+  **behind** the MessagingProvider seam, consumes only the ADR-0004 normalized message —
+  no SDK/channel shapes in core logic; AI parsing + D1 commit stay app-layer.
+  → [ADR-0006](../../docs/adr/0006-coordination-actor-on-agents-sdk.md).
 
 ## Not yet specified
 
