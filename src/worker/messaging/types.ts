@@ -30,6 +30,14 @@ export interface InboundParseFailure {
 	reason: string; // logged per EC-CH-02; router logs + 200s, never crashes the shared interface
 }
 
+// What the per-user actor hands back to the router for delivery (ticket 11+).
+// The actor decides *what kind* of reply this is without touching a provider
+// shape itself (ADR-0006 guardrail); the router is still the only thing that
+// calls sendText/sendChoicePrompt.
+export type OutboundAction =
+	| { kind: "text"; text: string }
+	| { kind: "choice"; text: string; options: ChoiceOption[] };
+
 export interface MessagingProvider {
 	sendText(to: string, text: string): Promise<void>;
 	sendMediaPrompt(to: string, text: string): Promise<void>;

@@ -1,5 +1,11 @@
 import { Agent } from 'agents';
-import type { NormalizedInboundMessage } from './messaging/types';
+import type { NormalizedInboundMessage, OutboundAction } from './messaging/types';
+import { advanceOnboarding, ONBOARDING_ENTRY_ACTION } from './onboarding/state-machine';
+import { isValidCurrencyCode, provisionUser } from './onboarding/provisioning';
+import {
+	INITIAL_ONBOARDING_CONTEXT,
+	type OnboardingContext,
+} from './onboarding/types';
 
 /**
  * Per-user coordination actor (ADR-0006), one instance per `user_id`
@@ -10,23 +16,86 @@ import type { NormalizedInboundMessage } from './messaging/types';
  *
  * It sits behind the MessagingProvider seam (ADR-0004): it consumes an
  * already-normalized inbound message and drives onboarding -> AI parse -> draft
- * -> confirm -> D1 commit. That behaviour lands in slices 11-13; ticket 10
- * only wires an echo stand-in so the webhook round-trip (router -> gate ->
- * provider -> actor -> outbound reply) proves out end to end first.
+ * -> confirm -> D1 commit. AI parse / draft / confirm land in slices 12-13.
  */
 export class Coordinator extends Agent<Env> {
-  // Onboarding state machine, pending draft, and confirm/commit flow are built
-  // in slices 11-13 on top of this.sql + this.schedule.
+	private ensureOnboardingTable(): void {
+		void this.sql`
+			CREATE TABLE IF NOT EXISTS onboarding_context (
+				id INTEGER PRIMARY KEY CHECK (id = 0),
+				context TEXT NOT NULL
+			)
+		`;
+	}
 
-  /**
-   * Ticket 10 echo stand-in: replies with the inbound text verbatim. Called
-   * directly as Durable Object RPC by the webhook router (same codebase, so
-   * no @callable()/WebSocket hop — see the Agents SDK "Worker calling agent"
-   * pattern). Replaced by onboarding SM / draft / confirm in slices 11-13.
-   */
-  async handleInboundMessage(
-    message: NormalizedInboundMessage,
-  ): Promise<string> {
-    return message.kind === 'text' ? message.text : `[${message.kind}]`;
-  }
+	// Conversation context lives in this.sql (ADR-0006), never duplicated into
+	// D1 — the single row is keyed by a CHECK-enforced id=0 (one Agent instance
+	// per user, so there is never more than one onboarding in flight here). A
+	// missing row IS the "first-ever contact" signal — nothing to advance on
+	// yet, so the caller sends the language-neutral entry prompt instead.
+	private loadOnboardingContext(): OnboardingContext | null {
+		this.ensureOnboardingTable();
+		const rows = this.sql<{
+			context: string;
+		}>`SELECT context FROM onboarding_context WHERE id = 0`;
+		if (rows.length === 0) return null;
+		return JSON.parse(rows[0].context) as OnboardingContext;
+	}
+
+	private saveOnboardingContext(context: OnboardingContext): void {
+		this.ensureOnboardingTable();
+		const json = JSON.stringify(context);
+		void this.sql`
+			INSERT INTO onboarding_context (id, context) VALUES (0, ${json})
+			ON CONFLICT (id) DO UPDATE SET context = excluded.context
+		`;
+	}
+
+	/**
+	 * Called directly as Durable Object RPC by the webhook router (same
+	 * codebase, so no @callable()/WebSocket hop — see the Agents SDK "Worker
+	 * calling agent" pattern). `onboardingCompleted` is the router's D1 read of
+	 * `users.onboarding_completed_at IS NOT NULL` (ADR-0003 §6) — the actor
+	 * never queries that column itself, keeping the guard at one checkpoint.
+	 */
+	async handleInboundMessage(
+		message: NormalizedInboundMessage,
+		onboardingCompleted: boolean,
+	): Promise<OutboundAction> {
+		if (!onboardingCompleted) {
+			return this.handleOnboardingMessage(message);
+		}
+
+		// Ticket 12-13 build transaction parsing/draft/confirm here. Ticket 11
+		// only wires onboarding; a returning user's messages still echo.
+		return message.kind === 'text'
+			? { kind: 'text', text: message.text }
+			: { kind: 'text', text: `[${message.kind}]` };
+	}
+
+	private async handleOnboardingMessage(
+		message: NormalizedInboundMessage,
+	): Promise<OutboundAction> {
+		const storedContext = this.loadOnboardingContext();
+
+		// First-ever contact: nothing to advance on yet, just send the
+		// language-neutral entry prompt (ADR-0003 §2 — language is asked first).
+		if (storedContext === null) {
+			this.saveOnboardingContext(INITIAL_ONBOARDING_CONTEXT);
+			return ONBOARDING_ENTRY_ACTION;
+		}
+
+		const inboundText = message.kind === 'text' ? message.text : '';
+		const result = await advanceOnboarding(storedContext, inboundText, (code) =>
+			isValidCurrencyCode(this.env.DB, code),
+		);
+
+		this.saveOnboardingContext(result.context);
+
+		if (result.readyToProvision) {
+			await provisionUser(this.env.DB, this.name, result.context.answers);
+		}
+
+		return result.action;
+	}
 }

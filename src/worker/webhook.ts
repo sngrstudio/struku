@@ -46,10 +46,28 @@ webhook.post("/telegram/webhook", async (c) => {
 		normalized.externalId,
 	);
 
-	const agent = await getAgentByName(c.env.Coordinator, userId);
-	const replyText = await agent.handleInboundMessage(normalized);
+	// Router's onboarding guard (ADR-0003 §6): NULL -> route to onboarding
+	// regardless of message content. The one piece of onboarding status
+	// queryable outside the actor; the granular step stays in the DO.
+	const user = await c.env.DB.prepare(
+		`SELECT onboarding_completed_at FROM users WHERE id = ?`,
+	)
+		.bind(userId)
+		.first<{ onboarding_completed_at: number | null }>();
+	const onboardingCompleted = user?.onboarding_completed_at != null;
 
-	await provider.sendText(normalized.externalId, replyText);
+	const agent = await getAgentByName(c.env.Coordinator, userId);
+	const action = await agent.handleInboundMessage(normalized, onboardingCompleted);
+
+	if (action.kind === "choice") {
+		await provider.sendChoicePrompt(
+			normalized.externalId,
+			action.text,
+			action.options,
+		);
+	} else {
+		await provider.sendText(normalized.externalId, action.text);
+	}
 
 	return c.body(null, 200);
 });
