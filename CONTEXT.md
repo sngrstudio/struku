@@ -57,6 +57,20 @@ The terminal step of onboarding: seeding the default chart of accounts and setti
 `users.onboarding_completed_at`. One step within onboarding, not the whole flow.
 _Avoid_: account creation, account setup
 
+**Normalized inbound message**:
+A provider-translated inbound message — `text` | `image` | `document` — carrying raw
+`(channel, externalId)` identity, its own `messageId`, and an optional `replyToId`.
+Never carries a resolved `user_id`; identity resolution happens above the
+`MessagingProvider` seam, not inside it.
+_Avoid_: webhook payload, update object
+
+**Choice prompt**:
+A message that asks the user to pick one of a fixed set of options (confirm/edit/
+discard, and similar). Rendered as native buttons where a channel supports them,
+plain numbered text otherwise — the reply is normalized identically either way, so
+core flow logic never branches on which affordance was used.
+_Avoid_: button prompt, inline keyboard, quick reply
+
 **Reversing entry**:
 A journal entry that cancels a previously posted one by mirroring its lines, linked via
 `reverses_entry_id`; the original is marked `reversed`. The append-only mechanism that

@@ -55,6 +55,15 @@ clears, this map hands off; it does not build.
   granular step stays DO-side; resumability is same-channel only, cross-channel
   deferred to the (still-fog) linking flow.
   → [ADR-0003](../../docs/adr/0003-onboarding-state-machine-eager-identity.md).
+- [04 · `MessagingProvider` seam](issues/04-messaging-provider-seam.md) — added
+  `sendChoicePrompt` beyond FR-CH-01's minimum for confirm/edit/discard-shaped
+  interactions; button taps and typed replies normalize to the **same** `kind: 'text'`
+  shape (EC-CH-03 true by construction, no provider-conditional branching); activation
+  gate (FR-CH-04) sits at the **router**, before any `Provider` call; `Provider` is a
+  **stateless payload translator** — raw `(channel, externalId)` only, identity
+  resolution stays a router-layer concern above the seam. Interface sketch grounded
+  against real Telegram Bot API JSON shapes.
+  → [ADR-0004](../../docs/adr/0004-messaging-provider-seam.md). Unblocks #05.
 
 ## Not yet specified
 

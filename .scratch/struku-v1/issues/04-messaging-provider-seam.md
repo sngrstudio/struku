@@ -1,7 +1,7 @@
 # 04 — `MessagingProvider` seam
 
 Type: grilling
-Status: open
+Status: resolved
 Blocked by: —
 
 ## Question
@@ -28,4 +28,19 @@ stays fog). Add adapter terms to `CONTEXT.md`.
 
 ## Answer
 
-_(ADR link + interface sketch)_
+→ [ADR-0004](../../../docs/adr/0004-messaging-provider-seam.md)
+
+- **`sendChoicePrompt(to, text, options)`** added beyond FR-CH-01's minimum, for the
+  confirm/edit/discard family of interactions — each provider renders it as native
+  buttons or a plain numbered list.
+- **Uniform normalization**: a button tap and a typed reply both normalize to
+  `{ kind: 'text', text: <value> }` — no `choice` kind, no provider-conditional
+  branching in business logic (EC-CH-03 true by construction).
+- **Activation gate (FR-CH-04/EC-CH-01) lives at the router**, before any `Provider`
+  call — `Provider` implementations carry zero activation-policy logic.
+- **`Provider` is a stateless payload translator**: returns raw `(channel, externalId)`,
+  never a resolved `user_id`. Identity resolution (`channel_identities` lookup, ADR-0003
+  eager-provisioning) is a router-layer concern above the seam.
+- Full interface sketch (`MessagingProvider`, `NormalizedInboundMessage`,
+  `InboundParseFailure`) is in the ADR, grounded against real Telegram Bot API JSON
+  shapes. `fileRef` resolution and `WhatsAppProvider` itself stay fog.
