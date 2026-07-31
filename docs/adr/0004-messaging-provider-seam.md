@@ -23,6 +23,13 @@ Ticket #01 (provisioning the live bot) hadn't captured real fixtures at the time
 decision — this sketch should be checked against those once captured, but the shape is
 unlikely to move: it's read directly off Telegram's documented schema.
 
+**Update — fixtures captured (#01 resolved):** real `@StrukuBot` `getUpdates` payloads
+(`.scratch/struku-v1/fixtures/telegram-updates.json`) confirm the shape — `chat.id` as
+identity (equal to `from.id` in private chats), `reply_to_message` nesting a full
+`Message`, `from.language_code` present. One normalization detail surfaced: Telegram
+`date` is unix **seconds**, so `TelegramProvider` multiplies by 1000 to produce the
+envelope's millis `timestamp`.
+
 ## Decision
 
 ### 1. Explicit `sendChoicePrompt`, beyond FR-CH-01's minimum

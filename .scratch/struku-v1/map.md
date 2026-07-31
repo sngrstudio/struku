@@ -64,6 +64,13 @@ clears, this map hands off; it does not build.
   resolution stays a router-layer concern above the seam. Interface sketch grounded
   against real Telegram Bot API JSON shapes.
   → [ADR-0004](../../docs/adr/0004-messaging-provider-seam.md). Unblocks #05.
+- [01 · Provision Telegram bot + webhook + secret](issues/01-provision-telegram-bot.md)
+  (task) — live bot **`@StrukuBot`** stood up; real inbound `Update` fixtures captured
+  via **getUpdates** (no webhook/secret/deploy — those defer to `/implement`) at
+  [`fixtures/telegram-updates.json`](fixtures/telegram-updates.json). Validated ADR-0004
+  against real payloads (shape holds; `date` is unix **seconds** → provider ×1000 for
+  millis). Pinned secret-binding convention **`TELEGRAM_BOT_TOKEN`**. Feeds the #05
+  parsing spike.
 
 ## Not yet specified
 
