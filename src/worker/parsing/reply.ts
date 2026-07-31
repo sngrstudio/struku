@@ -15,8 +15,37 @@ const CATEGORY_LABELS: Record<string, { id: string; en: string }> = {
 	freelance: { id: "Freelance", en: "Freelance" },
 };
 
-function categoryLabel(category: string, locale: Locale): string {
+export function categoryLabel(category: string, locale: Locale): string {
 	return CATEGORY_LABELS[category]?.[locale] ?? category;
+}
+
+export function directionLabel(
+	txnType: "income" | "expense",
+	locale: Locale,
+): string {
+	if (txnType === "expense") return locale === "id" ? "Pengeluaran" : "Expense";
+	return locale === "id" ? "Pemasukan" : "Income";
+}
+
+// Shared by ticket 12's plain-language reply and ticket 13's confirm prompt
+// (spec: same "Pengeluaran Rp 25.000 — Makan" summary, just with or without
+// the confirm/edit/discard choice attached).
+export function transactionSummaryLine(
+	txnType: "income" | "expense",
+	amount: number,
+	currency: string,
+	category: string | null,
+	date: string,
+	locale: Locale,
+): string {
+	const direction = directionLabel(txnType, locale);
+	const amountText = formatAmount(amount, currency);
+	const categoryText = category
+		? categoryLabel(category, locale)
+		: locale === "id"
+			? "Lainnya"
+			: "Other";
+	return `${direction} ${amountText} — ${categoryText} (${date})`;
 }
 
 // Today in the user's timezone (spec: "date: null -> app fills
@@ -51,10 +80,12 @@ const REPHRASE_REPLY: Record<Locale, string> = {
 };
 
 /**
- * Ticket 12: renders a ParseResult to a plain-language reply. Transaction
- * intent gets a summary of what was understood — no confirm/edit/discard
- * buttons and no ledger write (that's ticket 13's pending-draft/confirm flow,
- * built on top of this same ParseResult).
+ * Renders a ParseResult to a plain-language reply. As of ticket 13, the
+ * Coordinator intercepts a clean transaction parse (amount + txn_type both
+ * present) BEFORE calling this — that case starts a pending draft with a
+ * confirm/edit/discard choice prompt instead (see Coordinator.handleTransaction
+ * Message). This function still renders the clarification question, the
+ * intent stubs, and the unknown/rephrase reply.
  */
 export function buildParseReply(
 	result: ParseResult,
@@ -73,25 +104,17 @@ export function buildParseReply(
 			};
 		}
 
-		const direction =
-			result.txn_type === "expense"
-				? locale === "id"
-					? "Pengeluaran"
-					: "Expense"
-				: locale === "id"
-					? "Pemasukan"
-					: "Income";
-		const amountText = formatAmount(result.amount, result.currency);
-		const category = result.category
-			? categoryLabel(result.category, locale)
-			: locale === "id"
-				? "Lainnya"
-				: "Other";
 		const date = result.date ?? todayInTimezone(timezone);
-
 		return {
 			kind: "text",
-			text: `${direction} ${amountText} — ${category} (${date})`,
+			text: transactionSummaryLine(
+				result.txn_type,
+				result.amount,
+				result.currency,
+				result.category,
+				date,
+				locale,
+			),
 		};
 	}
 

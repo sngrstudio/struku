@@ -7,9 +7,25 @@ import {
 	type Locale,
 	type OnboardingContext,
 } from './onboarding/types';
+import { decideDraftCommand, decideEditValue, draftConfirmPrompt } from './draft/logic';
+import { DRAFT_COPY } from './draft/copy';
+import {
+	deleteDraft,
+	getEditState,
+	mostRecentDraft,
+	saveDraft,
+	setEditState,
+	updateDraftField,
+} from './draft/store';
+import type { PendingDraft } from './draft/types';
+import { commitTransaction } from './ledger/writer';
+import { uuidv7 } from './lib/uuidv7';
+import { detectAssetAccountSlug } from './ledger/payment-method';
 import { buildParseReply } from './parsing/reply';
 import type { TextParser } from './parsing/types';
 import { WorkersAiTextParser } from './parsing/workers-ai-text-parser';
+
+const DRAFT_TIMEOUT_SECONDS = 30 * 60; // spec: propose 30 min, pinned here (configurable).
 
 /**
  * Per-user coordination actor (ADR-0006), one instance per `user_id`
@@ -20,13 +36,27 @@ import { WorkersAiTextParser } from './parsing/workers-ai-text-parser';
  *
  * It sits behind the MessagingProvider seam (ADR-0004): it consumes an
  * already-normalized inbound message and drives onboarding -> AI parse -> draft
- * -> confirm -> D1 commit. AI parse / draft / confirm land in slices 12-13.
+ * -> confirm -> D1 commit. Decision logic (onboarding step transitions, draft
+ * command/edit-value handling) lives in pure functions this class calls
+ * (onboarding/state-machine.ts, draft/logic.ts) — this class owns I/O only:
+ * this.sql reads/writes, D1 calls, and this.schedule.
  */
 export class Coordinator extends Agent<Env> {
 	// Overridable in tests (via runInDurableObject) to inject a fake TextParser
 	// above env.AI — the deterministic-gating-test seam the spec calls for.
 	// Defaults to the real Workers AI implementation in production.
 	textParser: TextParser = new WorkersAiTextParser(this.env.AI);
+
+	// this.sql is a bound tagged-template method; draft/store.ts's functions
+	// take it as a plain parameter so they don't need an Agent instance.
+	private sqlTag<T = Record<string, string | number | boolean | null>>(
+		strings: TemplateStringsArray,
+		...values: (string | number | boolean | null)[]
+	): T[] {
+		return this.sql<T>(strings, ...values);
+	}
+
+	// --- Onboarding context (ticket 11) --------------------------------------
 
 	private ensureOnboardingTable(): void {
 		void this.sql`
@@ -60,50 +90,6 @@ export class Coordinator extends Agent<Env> {
 		`;
 	}
 
-	/**
-	 * Called directly as Durable Object RPC by the webhook router (same
-	 * codebase, so no @callable()/WebSocket hop — see the Agents SDK "Worker
-	 * calling agent" pattern). `onboardingCompleted` is the router's D1 read of
-	 * `users.onboarding_completed_at IS NOT NULL` (ADR-0003 §6) — the actor
-	 * never queries that column itself, keeping the guard at one checkpoint.
-	 */
-	async handleInboundMessage(
-		message: NormalizedInboundMessage,
-		onboardingCompleted: boolean,
-	): Promise<OutboundAction> {
-		if (!onboardingCompleted) {
-			return this.handleOnboardingMessage(message);
-		}
-
-		return this.handleTransactionMessage(message);
-	}
-
-	/**
-	 * Ticket 12: AI parse -> plain-language reply. No pending draft, no
-	 * confirm/edit/discard, no D1 write — that's ticket 13, built on top of
-	 * this same ParseResult. Non-text messages (image/document) aren't parsed
-	 * by TextParser (ADR-0005 is text-only); they still echo per ticket 10's
-	 * stand-in until the image pipeline exists (spec Out of Scope).
-	 */
-	private async handleTransactionMessage(
-		message: NormalizedInboundMessage,
-	): Promise<OutboundAction> {
-		if (message.kind !== 'text') {
-			return { kind: 'text', text: `[${message.kind}]` };
-		}
-
-		const profile = await this.env.DB.prepare(
-			`SELECT locale, timezone FROM users WHERE id = ?`,
-		)
-			.bind(this.name)
-			.first<{ locale: string; timezone: string }>();
-		const locale: Locale = profile?.locale.startsWith('en') ? 'en' : 'id';
-		const timezone = profile?.timezone ?? 'Asia/Jakarta';
-
-		const result = await this.textParser.parse(message.text, locale);
-		return buildParseReply(result, locale, timezone);
-	}
-
 	private async handleOnboardingMessage(
 		message: NormalizedInboundMessage,
 	): Promise<OutboundAction> {
@@ -128,5 +114,192 @@ export class Coordinator extends Agent<Env> {
 		}
 
 		return result.action;
+	}
+
+	// --- Pending drafts (ticket 13) -------------------------------------------
+
+	/** Scheduled callback (this.schedule) — EC-IMG-05 pattern applied to the
+	 * text draft: an unanswered draft expires with no commit. */
+	async expireDraft(payload: { entryId: string }): Promise<void> {
+		deleteDraft(this.sqlTag.bind(this), payload.entryId);
+	}
+
+	private async removeDraft(draft: PendingDraft): Promise<void> {
+		deleteDraft(this.sqlTag.bind(this), draft.entryId);
+		if (draft.scheduleId) {
+			await this.cancelSchedule(draft.scheduleId);
+		}
+	}
+
+	private async startDraft(
+		txnType: 'income' | 'expense',
+		amount: number,
+		currency: string,
+		category: PendingDraft['category'],
+		date: string,
+		rawText: string,
+		locale: Locale,
+	): Promise<OutboundAction> {
+		const entryId = uuidv7();
+		const assetSlug = detectAssetAccountSlug(rawText);
+		const schedule = await this.schedule(DRAFT_TIMEOUT_SECONDS, 'expireDraft', { entryId });
+
+		const draft: PendingDraft = {
+			entryId,
+			txnType,
+			amount,
+			currency,
+			category,
+			date,
+			assetSlug,
+			createdAt: Date.now(),
+			scheduleId: schedule.id,
+		};
+		saveDraft(this.sqlTag.bind(this), draft);
+
+		return draftConfirmPrompt(draft, locale);
+	}
+
+	private async confirmDraft(draft: PendingDraft): Promise<boolean> {
+		const result = await commitTransaction(this.env.DB, {
+			entryId: draft.entryId,
+			userId: this.name,
+			txnType: draft.txnType,
+			amountMajor: draft.amount,
+			currency: draft.currency,
+			category: draft.category,
+			date: draft.date,
+			assetSlug: draft.assetSlug,
+		});
+		await this.removeDraft(draft);
+		return result.ok;
+	}
+
+	/** A pending-draft reply — either a confirm/edit/discard command, or a
+	 * value while an edit is in progress. Decision logic is pure (draft/logic.ts);
+	 * this method only executes the I/O the decision calls for. Returns null
+	 * when the message isn't a draft-control reply at all (EC-TXT-03 — falls
+	 * through to starting a new draft). */
+	private async handlePendingDraft(
+		draft: PendingDraft,
+		text: string,
+		locale: Locale,
+	): Promise<OutboundAction | null> {
+		const sql = this.sqlTag.bind(this);
+
+		const editState = getEditState(sql, draft.entryId);
+
+		if (editState) {
+			const decision = decideEditValue(draft, editState, text, locale);
+			if (decision.kind === 'set_edit_field') {
+				setEditState(sql, draft.entryId, decision.field);
+			} else if (decision.kind === 'update_field') {
+				updateDraftField(sql, draft.entryId, decision.field, decision.value);
+				setEditState(sql, draft.entryId, null);
+			}
+			return decision.action;
+		}
+
+		const decision = decideDraftCommand(draft, text, locale);
+		if (decision.kind === 'fall_through') return null;
+
+		if (decision.kind === 'discard') {
+			await this.removeDraft(draft);
+			return decision.action;
+		}
+		if (decision.kind === 'start_edit') {
+			setEditState(sql, draft.entryId, 'choosing');
+			return decision.action;
+		}
+		// commit
+		const committed = await this.confirmDraft(draft);
+		const copy = DRAFT_COPY[locale];
+		return { kind: 'text', text: committed ? copy.committed : copy.commitFailed };
+	}
+
+	// --- Dispatch -------------------------------------------------------------
+
+	/**
+	 * Called directly as Durable Object RPC by the webhook router (same
+	 * codebase, so no @callable()/WebSocket hop — see the Agents SDK "Worker
+	 * calling agent" pattern). `onboardingCompleted` is the router's D1 read of
+	 * `users.onboarding_completed_at IS NOT NULL` (ADR-0003 §6) — the actor
+	 * never queries that column itself, keeping the guard at one checkpoint.
+	 */
+	async handleInboundMessage(
+		message: NormalizedInboundMessage,
+		onboardingCompleted: boolean,
+	): Promise<OutboundAction> {
+		if (!onboardingCompleted) {
+			return this.handleOnboardingMessage(message);
+		}
+
+		return this.handleTransactionMessage(message);
+	}
+
+	/**
+	 * AI parse -> pending draft -> confirm/edit/discard -> D1 commit. A
+	 * pending-draft reply (typed synonym or tapped button, ADR-0004 §2) is
+	 * checked BEFORE invoking TextParser, so "confirm" never gets sent to the
+	 * model as if it were a new transaction.
+	 */
+	private async handleTransactionMessage(
+		message: NormalizedInboundMessage,
+	): Promise<OutboundAction> {
+		if (message.kind !== 'text') {
+			return { kind: 'text', text: `[${message.kind}]` };
+		}
+
+		const { locale, timezone } = await this.getUserProfile();
+
+		const sql = this.sqlTag.bind(this);
+		const pendingDraft = mostRecentDraft(sql);
+		if (pendingDraft) {
+			const response = await this.handlePendingDraft(pendingDraft, message.text, locale);
+			if (response) return response;
+			// EC-TXT-03: falls through to starting a NEW draft below.
+		}
+
+		const result = await this.textParser.parse(message.text, locale);
+
+		if (
+			result.intent === 'transaction' &&
+			result.amount !== null &&
+			result.txn_type !== null &&
+			result.category !== null
+		) {
+			return this.startDraft(
+				result.txn_type,
+				result.amount,
+				result.currency,
+				result.category,
+				result.date ?? this.todayIn(timezone),
+				message.text,
+				locale,
+			);
+		}
+
+		return buildParseReply(result, locale, timezone);
+	}
+
+	private async getUserProfile(): Promise<{ locale: Locale; timezone: string }> {
+		const profile = await this.env.DB.prepare(
+			`SELECT locale, timezone FROM users WHERE id = ?`,
+		)
+			.bind(this.name)
+			.first<{ locale: string; timezone: string }>();
+		return {
+			locale: profile?.locale.startsWith('en') ? 'en' : 'id',
+			timezone: profile?.timezone ?? 'Asia/Jakarta',
+		};
+	}
+
+	private todayIn(timezone: string): string {
+		return new Intl.DateTimeFormat('en-CA', {
+			timeZone: timezone,
+			year: 'numeric',
+			month: '2-digit',
+			day: '2-digit',
+		}).format(new Date());
 	}
 }

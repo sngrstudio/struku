@@ -6,10 +6,14 @@ import {
 } from "./helpers/inject-fake-text-parser";
 import type { ParseResult } from "../src/worker/parsing/types";
 
-// Ticket 12: an onboarded user's free-text message is parsed and understood
-// -- a plain-language reply, a clarification when essential fields are
-// missing, or a graceful stub for non-transaction intents -- with nothing
-// written to the ledger (no confirm buttons, no D1 commit; that's ticket 13).
+// Ticket 12: an onboarded user's free-text message is parsed and understood.
+// As of ticket 13, a clean transaction parse (amount + txn_type present)
+// starts a pending draft and surfaces as a confirm/edit/discard choice
+// prompt rather than plain text — the summary content itself (resolved
+// amount, category, direction, date) is still exactly what ticket 12 built;
+// see test/ledger-webhook.test.ts for the confirm/discard/edit/timeout flow
+// this feeds into. Clarification / stub / unknown replies are unaffected by
+// ticket 13 and remain plain text.
 //
 // Deterministic gating tests inject a fake TextParser above env.AI (spec
 // Testing Decisions) with the canned ParseResults the ticket calls out: clean
@@ -61,7 +65,7 @@ async function injectCannedResult(
 async function sendText(
 	chatId: number,
 	text: string,
-): Promise<{ text: string }> {
+): Promise<{ text: string; isChoicePrompt: boolean }> {
 	const update = {
 		update_id: Math.floor(Math.random() * 1_000_000_000),
 		message: {
@@ -88,8 +92,11 @@ async function sendText(
 		| [string, RequestInit]
 		| undefined;
 	if (!lastCall) throw new Error("no outbound Bot API call captured");
-	const body = JSON.parse(lastCall[1].body as string) as { text: string };
-	return { text: body.text };
+	const body = JSON.parse(lastCall[1].body as string) as {
+		text: string;
+		reply_markup?: unknown;
+	};
+	return { text: body.text, isChoicePrompt: body.reply_markup !== undefined };
 }
 
 describe("free-text parse & intent routing (ticket 12)", () => {
@@ -115,6 +122,8 @@ describe("free-text parse & intent routing (ticket 12)", () => {
 		expect(reply.text.toLowerCase()).not.toContain("debit");
 		expect(reply.text.toLowerCase()).not.toContain("credit");
 		expect(reply.text.toLowerCase()).not.toContain("journal");
+		// Ticket 13: a clean parse starts a pending draft, not a bare reply.
+		expect(reply.isChoicePrompt).toBe(true);
 	});
 
 	it("a clean income parse is labelled as income, not expense", async () => {
@@ -135,6 +144,7 @@ describe("free-text parse & intent routing (ticket 12)", () => {
 		expect(reply.text).toContain("Rp 5.000.000");
 		expect(reply.text.toLowerCase()).toContain("pemasukan");
 		expect(reply.text.toLowerCase()).toContain("gaji");
+		expect(reply.isChoicePrompt).toBe(true);
 	});
 
 	it("a foreign-currency expense keeps its own currency, not converted to IDR", async () => {
@@ -154,6 +164,7 @@ describe("free-text parse & intent routing (ticket 12)", () => {
 
 		expect(reply.text).toContain("$ 15");
 		expect(reply.text).not.toContain("Rp");
+		expect(reply.isChoicePrompt).toBe(true);
 	});
 
 	it("defaults the date to today in the user's timezone when the model returns null", async () => {
@@ -180,6 +191,7 @@ describe("free-text parse & intent routing (ticket 12)", () => {
 			day: "2-digit",
 		}).format(new Date());
 		expect(reply.text).toContain(today);
+		expect(reply.isChoicePrompt).toBe(true);
 	});
 
 	it("a missing-amount parse yields the clarification question, never a fabricated amount (EC-TXT-01/02)", async () => {
@@ -255,7 +267,7 @@ describe("free-text parse & intent routing (ticket 12)", () => {
 		expect(reply.text.toLowerCase()).toMatch(/ngerti|rephrase/);
 	});
 
-	it("does not write anything to the ledger for a transaction-intent parse (no draft/commit in this ticket)", async () => {
+	it("does not write anything to the ledger for a clean parse alone, before confirm (ticket 13 commits only on confirm)", async () => {
 		const chatId = 800000009;
 		const userId = await seedOnboardedUser(String(chatId));
 		await injectCannedResult(userId, {
