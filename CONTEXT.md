@@ -71,6 +71,19 @@ plain numbered text otherwise — the reply is normalized identically either way
 core flow logic never branches on which affordance was used.
 _Avoid_: button prompt, inline keyboard, quick reply
 
+**Intent router**:
+The classification the AI parser assigns to an inbound message — `transaction`, `budget`,
+`category`, `query`, or `unknown` — decided in the same single flat model call that
+extracts the transaction fields. Only the `transaction` path is fully built in v1; the
+rest are routed but stubbed.
+_Avoid_: classifier, dispatcher, NLU intent
+
+**Clarification**:
+A short question the parser emits (in the user's language) when an essential field is
+missing — e.g. a transaction with no amount — instead of guessing or inventing a value.
+Carried as a nullable field on the parse result.
+_Avoid_: follow-up, reprompt, disambiguation
+
 **Reversing entry**:
 A journal entry that cancels a previously posted one by mirroring its lines, linked via
 `reverses_entry_id`; the original is marked `reversed`. The append-only mechanism that

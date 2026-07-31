@@ -1,0 +1,181 @@
+{
+  "battery": [
+    {
+      "label": "en  txn",
+      "text": "bought coffee 25k",
+      "workerMs": 1626,
+      "parsed": {
+        "amount": 25000,
+        "category": "food",
+        "clarification": null,
+        "currency": "IDR",
+        "date": null,
+        "intent": "transaction",
+        "txn_type": "expense"
+      },
+      "raw": "{\"amount\": 25000, \"category\": \"food\", \"clarification\": null, \"currency\": \"IDR\", \"date\": null, \"intent\": \"transaction\", \"txn_type\": \"expense\"}"
+    },
+    {
+      "label": "id  txn/rb",
+      "text": "kopi 25rb",
+      "workerMs": 1750,
+      "parsed": {
+        "amount": 25000,
+        "category": "food",
+        "clarification": null,
+        "currency": "IDR",
+        "date": null,
+        "intent": "transaction",
+        "txn_type": "expense"
+      },
+      "raw": "{\n  \"amount\": 25000,\n  \"category\": \"food\",\n  \"clarification\": null,\n  \"currency\": \"IDR\",\n  \"date\": null,\n  \"intent\": \"transaction\",\n  \"txn_type\": \"expense\"\n}"
+    },
+    {
+      "label": "id  txn/jt",
+      "text": "gaji masuk 5jt",
+      "workerMs": 1758,
+      "parsed": {
+        "amount": 5000000,
+        "category": "salary",
+        "clarification": null,
+        "currency": "IDR",
+        "date": null,
+        "intent": "transaction",
+        "txn_type": "income"
+      },
+      "raw": "{\n  \"amount\": 5000000,\n  \"category\": \"salary\",\n  \"clarification\": null,\n  \"currency\": \"IDR\",\n  \"date\": null,\n  \"intent\": \"transaction\",\n  \"txn_type\": \"income\"\n}"
+    },
+    {
+      "label": "id  txn/transport",
+      "text": "beli bensin 50rb",
+      "workerMs": 1493,
+      "parsed": {
+        "amount": 50000,
+        "category": "transport",
+        "clarification": null,
+        "currency": "IDR",
+        "date": null,
+        "intent": "transaction",
+        "txn_type": "expense"
+      },
+      "raw": "{\"amount\": 50000, \"category\": \"transport\", \"clarification\": null, \"currency\": \"IDR\", \"date\": null, \"intent\": \"transaction\", \"txn_type\": \"expense\"}"
+    },
+    {
+      "label": "id  txn/decimal",
+      "text": "transfer 1.5jt buat tabungan",
+      "workerMs": 1631,
+      "parsed": {
+        "amount": 1500000,
+        "category": "other",
+        "clarification": null,
+        "currency": "IDR",
+        "date": null,
+        "intent": "transaction",
+        "txn_type": "income"
+      },
+      "raw": "{\"amount\": 1500000, \"category\": \"other\", \"clarification\": null, \"currency\": \"IDR\", \"date\": null, \"intent\": \"transaction\", \"txn_type\": \"income\"}"
+    },
+    {
+      "label": "mix txn/usd",
+      "text": "bayar netflix 15 usd",
+      "workerMs": 1879,
+      "parsed": {
+        "amount": 15,
+        "category": "entertainment",
+        "clarification": null,
+        "currency": "USD",
+        "date": null,
+        "intent": "transaction",
+        "txn_type": "expense"
+      },
+      "raw": "{\n  \"amount\": 15,\n  \"category\": \"entertainment\",\n  \"clarification\": null,\n  \"currency\": \"USD\",\n  \"date\": null,\n  \"intent\": \"transaction\",\n  \"txn_type\": \"expense\"\n}"
+    },
+    {
+      "label": "id  txn/verbose",
+      "text": "makan siang tadi di warteg 35 ribu pake gopay",
+      "workerMs": 1759,
+      "parsed": {
+        "amount": 35000,
+        "category": "food",
+        "clarification": null,
+        "currency": "IDR",
+        "date": null,
+        "intent": "transaction",
+        "txn_type": "expense"
+      },
+      "raw": "{\n  \"amount\": 35000,\n  \"category\": \"food\",\n  \"clarification\": null,\n  \"currency\": \"IDR\",\n  \"date\": null,\n  \"intent\": \"transaction\",\n  \"txn_type\": \"expense\"\n}"
+    },
+    {
+      "label": "id  budget",
+      "text": "set budget makan 500rb",
+      "workerMs": 1547,
+      "parsed": {
+        "amount": 500000,
+        "category": "food",
+        "clarification": null,
+        "currency": "IDR",
+        "date": null,
+        "intent": "budget",
+        "txn_type": null
+      },
+      "raw": "{\"amount\": 500000, \"category\": \"food\", \"clarification\": null, \"currency\": \"IDR\", \"date\": null, \"intent\": \"budget\", \"txn_type\": null}"
+    },
+    {
+      "label": "id  query",
+      "text": "berapa pengeluaran bulan ini?",
+      "workerMs": 1334,
+      "parsed": {
+        "amount": null,
+        "category": null,
+        "clarification": null,
+        "currency": null,
+        "date": null,
+        "intent": "query",
+        "txn_type": null
+      },
+      "raw": "{\"amount\": null, \"category\": null, \"clarification\": null, \"currency\": null, \"date\": null, \"intent\": \"query\", \"txn_type\": null}"
+    },
+    {
+      "label": "id  no-amount",
+      "text": "jajan bakso tadi siang",
+      "workerMs": 1823,
+      "parsed": {
+        "amount": null,
+        "category": "food",
+        "clarification": "Berapa biaya jajan bakso tadi siang?",
+        "currency": null,
+        "date": null,
+        "intent": "transaction",
+        "txn_type": "expense"
+      },
+      "raw": "{\"amount\": null, \"category\": \"food\", \"clarification\": \"Berapa biaya jajan bakso tadi siang?\", \"currency\": null, \"date\": null, \"intent\": \"transaction\", \"txn_type\": \"expense\"}"
+    },
+    {
+      "label": "id  category",
+      "text": "tambah kategori belanja bulanan",
+      "workerMs": 1317,
+      "parsed": {
+        "amount": null,
+        "category": null,
+        "clarification": null,
+        "currency": null,
+        "date": null,
+        "intent": "category",
+        "txn_type": null
+      },
+      "raw": "{\"amount\": null, \"category\": null, \"clarification\": null, \"currency\": null, \"date\": null, \"intent\": \"category\", \"txn_type\": null}"
+    }
+  ],
+  "latency": [
+    1502,
+    1562,
+    1582,
+    1616,
+    1621,
+    1674,
+    1821,
+    1883,
+    1909,
+    2372
+  ]
+}

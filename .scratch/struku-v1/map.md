@@ -64,6 +64,14 @@ clears, this map hands off; it does not build.
   resolution stays a router-layer concern above the seam. Interface sketch grounded
   against real Telegram Bot API JSON shapes.
   → [ADR-0004](../../docs/adr/0004-messaging-provider-seam.md). Unblocks #05.
+- [05 · AI text-parsing contract](issues/05-ai-text-parsing-contract.md) (prototype) —
+  live spike **proved both #07 risks away**: latency p50 ~1.7s / p95 ~2.4s (inside
+  NFR-PERF-01) and Indonesian extraction accurate on `llama-3.3-70b-instruct-fp8-fast`.
+  **Single flat call** routes `intent` + extracts (nested schema degrades → 14s spiral);
+  amount stays **major-unit** (app converts to minor via ADR-0002 exponent); category is
+  an **enum of canonical ADR-0002 slugs**; low-confidence → clarify not invent; defensive
+  parse→Zod→1-retry. → [ADR-0005](../../docs/adr/0005-ai-text-parsing-contract.md).
+  Surfaced fog: own-account transfers.
 - [01 · Provision Telegram bot + webhook + secret](issues/01-provision-telegram-bot.md)
   (task) — live bot **`@StrukuBot`** stood up; real inbound `Update` fixtures captured
   via **getUpdates** (no webhook/secret/deploy — those defer to `/implement`) at
@@ -78,6 +86,9 @@ clears, this map hands off; it does not build.
 
 - WhatsApp / api.co.id provider + gateway evaluation & signup (2nd `MessagingProvider` impl)
 - Image / receipt parsing + Indonesian OCR-accuracy validation (PRD §13 risk)
+- Own-account **transfers** (asset→asset): a third transaction shape beyond income/expense
+  — the parsing contract (ADR-0005) leaves these to a future ticket (resolves two asset
+  accounts by slug, not a category)
 - Multi-currency conversion + Frankfurter daily cache (FR-CUR-03..05)
 - Chat-native budget management (§3.5) & category management (§3.6)
 - Transaction editing / reclassification resolution + audit-preserving reversal (§3.7)

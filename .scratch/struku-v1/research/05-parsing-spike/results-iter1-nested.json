@@ -1,0 +1,138 @@
+{
+  "battery": [
+    {
+      "label": "en  txn",
+      "text": "bought coffee 25k",
+      "clientMs": 1006,
+      "workerMs": 909,
+      "ok": true,
+      "parsed": {
+        "intent": "transaction",
+        "transaction": {
+          "type": "expense"
+        }
+      },
+      "raw": "{\"intent\": \"transaction\", \"transaction\": {\"type\": \"expense\"   \t}}"
+    },
+    {
+      "label": "id  txn/rb",
+      "text": "kopi 25rb",
+      "clientMs": 14514,
+      "workerMs": 14499,
+      "ok": true,
+      "parsed": "{\"intent\": \"transaction\", \"transaction\": {\"type\": \"expense\" \t\t\t \t\t\t\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t ",
+      "raw": "{\"intent\": \"transaction\", \"transaction\": {\"type\": \"expense\" \t\t\t \t\t\t\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t "
+    },
+    {
+      "label": "id  txn/jt",
+      "text": "gaji masuk 5jt",
+      "clientMs": 968,
+      "workerMs": 962,
+      "ok": true,
+      "parsed": {
+        "intent": "transaction",
+        "transaction": {
+          "type": "income"
+        }
+      },
+      "raw": "{\"intent\": \"transaction\", \"transaction\": {\"type\": \"income\" \t}}"
+    },
+    {
+      "label": "id  txn/transport",
+      "text": "beli bensin 50rb",
+      "clientMs": 14253,
+      "workerMs": 14242,
+      "ok": true,
+      "parsed": "{\"intent\": \"transaction\", \"transaction\": {\"type\": \"expense\" \t\t\t   \t\t\t\t\t\t    \t\t\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\t\t\t\t\t\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\n\t\t\n\n\n\n\n\n\n\t\t\n\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t",
+      "raw": "{\"intent\": \"transaction\", \"transaction\": {\"type\": \"expense\" \t\t\t   \t\t\t\t\t\t    \t\t\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\t\t\t\t\t\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\n\t\t\n\n\n\n\n\n\n\t\t\n\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t\n\n\n\n\n\n\t\t"
+    },
+    {
+      "label": "id  txn/decimal",
+      "text": "transfer 1.5jt buat tabungan",
+      "clientMs": 955,
+      "workerMs": 951,
+      "ok": true,
+      "parsed": {
+        "intent": "transaction",
+        "transaction": {
+          "type": "income"
+        }
+      },
+      "raw": "{\"intent\": \"transaction\", \"transaction\": {\"type\": \"income\"  }  }"
+    },
+    {
+      "label": "mix txn/usd",
+      "text": "bayar netflix 15 usd",
+      "clientMs": 988,
+      "workerMs": 982,
+      "ok": true,
+      "parsed": {
+        "intent": "transaction",
+        "transaction": {
+          "type": "expense"
+        }
+      },
+      "raw": "{\"intent\": \"transaction\", \"transaction\": {\"type\": \"expense\" \t\t \t}}"
+    },
+    {
+      "label": "id  budget",
+      "text": "set budget makan 500rb",
+      "clientMs": 654,
+      "workerMs": 649,
+      "ok": true,
+      "parsed": {
+        "intent": "budget",
+        "transaction": null
+      },
+      "raw": "{\"intent\": \"budget\", \"transaction\": null}"
+    },
+    {
+      "label": "id  query",
+      "text": "berapa pengeluaran bulan ini?",
+      "clientMs": 776,
+      "workerMs": 769,
+      "ok": true,
+      "parsed": {
+        "intent": "query",
+        "transaction": null
+      },
+      "raw": "{\"intent\": \"query\", \"transaction\": null}"
+    },
+    {
+      "label": "id  no-amount",
+      "text": "jajan bakso tadi siang",
+      "clientMs": 938,
+      "workerMs": 931,
+      "ok": true,
+      "parsed": {
+        "intent": "transaction",
+        "transaction": {
+          "type": "expense"
+        }
+      },
+      "raw": "{\"intent\": \"transaction\", \"transaction\": {\"type\": \"expense\"    }  }"
+    },
+    {
+      "label": "id  category",
+      "text": "tambah kategori belanja bulanan",
+      "clientMs": 735,
+      "workerMs": 729,
+      "ok": true,
+      "parsed": {
+        "intent": "category",
+        "transaction": null
+      },
+      "raw": "{\"intent\": \"category\", \"transaction\": null}"
+    }
+  ],
+  "latency": [
+    776,
+    877,
+    894,
+    918,
+    921,
+    1211,
+    2018,
+    13690
+  ]
+}
