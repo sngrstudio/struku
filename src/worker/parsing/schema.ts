@@ -9,10 +9,20 @@ export const parseResultSchema = z.object({
 	amount: z.number().positive().nullable(),
 	currency: z.string().length(3),
 	category: z.enum(CATEGORY_SLUGS).nullable(),
+	// The contract is 'YYYY-MM-DD' or null, but the live model routinely
+	// answers with a sentinel word ("unknown", "none", "") when no date was
+	// stated, despite the prompt asking for null. Rejecting those threw away
+	// otherwise-perfect parses, so anything that is not a well-formed date is
+	// coerced to null here — the boundary absorbs the model's phrasing rather
+	// than the whole result being discarded. A malformed *real* date still
+	// lands as null, which reads downstream as "no date stated" and defaults
+	// to today, exactly as an absent date would.
 	date: z
 		.string()
-		.regex(/^\d{4}-\d{2}-\d{2}$/)
-		.nullable(),
+		.nullable()
+		.transform((value) =>
+			value !== null && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null,
+		),
 	clarification: z.string().nullable(),
 });
 

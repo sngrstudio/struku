@@ -90,8 +90,22 @@ export class WorkersAiTextParser implements TextParser {
 		});
 
 		if (typeof output === "string") return output;
-		if ("response" in output && typeof output.response === "string") {
-			return output.response;
+
+		// `.response` carries the model's payload, but its type depends on the
+		// runtime: with response_format json_schema the binding now hands back
+		// an already-parsed object, while plain-text calls (and the shape this
+		// code was originally written against) return a JSON string. Both are
+		// normalized to a string here so tryParseResult stays the single
+		// JSON.parse + Zod gate. Only accepting the string form silently
+		// produced "" for every live call, which drove the whole parse path
+		// into UNKNOWN_REPHRASE_RESULT — the model was answering correctly the
+		// entire time.
+		if (output && typeof output === "object" && "response" in output) {
+			const { response } = output;
+			if (typeof response === "string") return response;
+			if (response !== null && response !== undefined) {
+				return JSON.stringify(response);
+			}
 		}
 		return "";
 	}
