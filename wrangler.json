@@ -39,6 +39,18 @@
 		"binding": "AI"
 	},
 	/**
+	 * TELEGRAM_BOT_TOKEN is a Workers Secret (`wrangler secret put`), never
+	 * committed. Declaring it here (rather than relying on .dev.vars
+	 * inference) is what makes `wrangler types` type it on Env, and gets
+	 * local-dev validation for free. Its presence/absence also doubles as
+	 * tracer #1's activation gate (ADR-0004 §3): a single Telegram channel
+	 * is "active" iff the secret is configured (spec Out of Scope - no
+	 * channel_configs DB row in this slice).
+	 */
+	"secrets": {
+		"required": ["TELEGRAM_BOT_TOKEN"]
+	},
+	/**
 	 * Per-user coordination actor built on the Agents SDK (ADR-0006). Each Agent
 	 * instance is a SQLite-backed Durable Object addressed by user_id.
 	 */

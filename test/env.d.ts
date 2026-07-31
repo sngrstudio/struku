@@ -9,6 +9,9 @@ declare global {
 			// (this binding exists only under the test pool). Present at runtime in
 			// tests; asserted non-null where consumed.
 			TEST_MIGRATIONS?: D1Migration[];
+			// Workers Secret in production (never committed); set directly on
+			// `env` in tests to flip the activation gate (ticket 10, EC-CH-01).
+			TELEGRAM_BOT_TOKEN?: string;
 		}
 	}
 }
