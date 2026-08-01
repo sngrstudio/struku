@@ -1,8 +1,8 @@
 # 23 — Konfirmasi draft: edit bahasa natural + balasan commit berrincian
 
 Type: grilling
-Status: open
-Blocked by: 22
+Status: claimed
+Blocked by: — (22 resolved 2026-08-01)
 
 ## Question
 
@@ -99,6 +99,87 @@ field lagi ke jalur edit di tiket ini.
 
 Kalau grilling 22 ternyata sesingkat dugaan, dua tiket ini boleh digabung ke satu
 sesi — urutannya tetap 22 dulu.
+
+## Answer — bagian B (balasan commit berrincian)
+
+**Bagian A (edit bahasa natural) belum digrilling** — sesi ini sengaja memisah
+B dulu karena A menyentuh seam `env.AI` dan ongkosnya jauh berbeda.
+
+### Temuan kode: rinciannya sudah ada, hanya tidak diulang
+
+Flow yang digambar di [17](17-post-commit-correction.md) **sudah separuh ada**.
+Yang bot kirim saat konfirmasi hari ini
+([`logic.ts:36-50`](../../../src/worker/draft/logic.ts) →
+[`reply.ts:48`](../../../src/worker/parsing/reply.ts)):
+
+```
+Pengeluaran Rp 25.000 — Makan (2026-01-15) Betul?   [Konfirmasi] [Edit] [Batal]
+```
+
+Arah, jumlah, kategori, dan tanggal **semuanya sudah tampil** — hanya dipadatkan
+jadi satu baris, dan hanya sebelum commit. Yang hilang setelah Konfirmasi hanya
+`"Sip, sudah dicatat!"` ([`copy.ts:33`](../../../src/worker/draft/copy.ts)).
+
+### Keputusan: rincian pasca-commit adalah **echo**, bukan info baru
+
+Pemilik repo: *"echo, sebagai laporan"*. Rincian yang diulang berfungsi
+**menutup transaksi** (penanda "ini yang barusan masuk"), bukan menyampaikan
+sesuatu yang belum terlihat. Yang benar-benar baru hanyalah **angka harian**.
+
+⚠️ **Konsekuensi yang harus dicatat jujur:** butir B **tidak menutup lubang
+deteksi kategori meleset** yang melahirkan tiket ini. Temuan grilling
+[17](17-post-commit-correction.md) berbunyi *"user tidak punya cara tahu
+kategorinya meleset"* — tapi kategori **sudah** tampil sebelum commit, jadi
+masalah sebenarnya adalah **menekan Konfirmasi tanpa membacanya**. Meng-echo
+teks yang sama sedetik kemudian tidak memperbaiki itu: baris kedua akan
+di-skip dengan alasan yang sama persis. Yang didapat dari B adalah **angka
+harian**, dan itu barang yang berbeda. Lubang deteksi kategori **masih
+terbuka** — jangan dianggap tertutup oleh tiket ini.
+
+### Butir 4 — bentuk agregat "Pengeluaran hari ini"
+
+1. **"Hari ini" = `entry_date`, bukan `created_at`.** Mencatat jam 1 pagi untuk
+   belanja kemarin masuk hitungan **kemarin**. Konsisten dengan ledger: yang
+   dihitung tanggal akuntansi, bukan waktu ketik.
+2. **Hanya pengeluaran, bukan net.** Pemasukan (gaji) tidak mengurangi angkanya.
+3. **Multi-currency dipisah, tanpa FX.** ADR-0002 tetap utuh (FX hanya di jalur
+   reporting, yang belum ada) → **23 tidak perlu di-block ke
+   [16](16-reporting-query-surface.md)**.
+
+**Tampilan (butir 3 di atas): opsi A polos** — hanya mata uang transaksi yang
+baru saja di-commit, **tanpa label mata uang**:
+
+```
+Pengeluaran hari ini: Rp 125.000
+```
+
+Ditawarkan eksplisit dua alternatif (A dengan label `(IDR)`, dan B yang
+menampilkan semua mata uang sebaris); pemilik repo memilih A polos. Konsekuensi
+yang diterima sadar: **kalau hari itu ada pengeluaran mata uang lain, angka ini
+diam-diam tidak lengkap dan tidak memberi tahu apa pun soal itu.** Melihat yang
+lain adalah pekerjaan [16](16-reporting-query-surface.md).
+
+### Jebakan riset 14 pada agregat ini
+
+Ketiganya tetap berlaku dan **wajib** saat implementasi
+([14](14-d1-aggregate-query-capability.md)):
+
+- **(a) `PRAGMA optimize`** — tanpanya planner mengabaikan
+  `idx_journal_entries_user_date`. Ini [20](20-stats-refresh-trigger.md), **belum
+  selesai**. Query ini akan berjalan di atas planner yang salah sampai 20 mendarat
+  — dapat diterima untuk satu angka satu hari, tapi jangan dilupakan.
+- **(b) filter naif `direction='debit'` mencemari hasil dengan `cash`** — harus
+  lewat `accounts.type = 'expense'`. Keputusan "hanya pengeluaran, bukan net"
+  membuat ini lolos bersih.
+- **(c) `status` harus disaring** (`status = 'posted'`) atau reversal terhitung
+  ganda begitu [17](17-post-commit-correction.md) mendarat.
+
+### Sisa yang belum diputuskan di tiket ini
+
+Butir **1, 2, 3** (edit bahasa natural: intent baru atau tidak, penanganan parse
+gagal, menu lama dipertahankan atau tidak) dan butir **5** (seberapa banyak
+rincian sebelum jadi berisik — terikat ke fog "Beban konfirmasi" di map, yang
+sekarang disentuh dari tiga arah). Semua itu bagian **A**, giliran berikutnya.
 
 ## Catatan
 
