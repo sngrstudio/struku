@@ -173,3 +173,31 @@ Di luar ruang lingkup 22: menampilkan & mengedit keterangan saat konfirmasi
 Catatan uji: jalur ini **tidak menyentuh `env.AI`**, jadi suite lokal cukup
 representatif — tapi ini jalur tulis harian yang hidup, jadi deploy sungguhan
 tetap sepadan sebelum dianggap beres.
+
+## Status implementasi (2026-08-01)
+
+**Terbangun & ter-deploy**, `434a343` → versi `eff3e738`. Empat langkah di atas
+terpasang semua; 71/71 test lokal hijau, `tsc` bersih. Code review dua sumbu
+menemukan satu defect nyata (`.trim()` di writer melanggar jaminan verbatim
+butir 1) — sudah dibetulkan, plus test regresi (`"  wartegg  25rb  "`).
+
+⚠️ **Verifikasi produksi belum dilakukan — di-skip atas permintaan pemilik repo,
+bukan karena sudah beres.** Yang belum terbukti di workerd:
+
+- **Shim `ALTER TABLE` di `ensureDraftTable`** — inilah yang paling perlu dilihat.
+  Jalur `PRAGMA table_info` + `ALTER` **hanya** berjalan pada Coordinator yang
+  tabelnya mendahului `raw_text`. DO di test selalu segar, jadi jalur ini
+  **tidak pernah tersentuh suite lokal**; miniflare ≠ workerd (guardrail map).
+  Sudah diuji lawan skema pre-22 di `node:sqlite` (kolom bertambah, baris lama
+  `NULL`, panggilan kedua tidak throw) — tapi itu bukan workerd.
+- **Satu transaksi asli** lewat `@StrukuBot` → `description` terisi verbatim.
+
+Baseline produksi saat deploy: **2 entry, keduanya `description` NULL** (entry
+pra-22, sesuai butir 3). Entry berikutnya yang muncul adalah bukti pertama.
+
+Cara memverifikasi nanti: `npx wrangler tail` di satu terminal, kirim
+`warteg 25rb` ke bot lalu konfirmasi, kemudian
+`npx wrangler d1 execute struku-ledger --remote --json --command "SELECT description FROM journal_entries ORDER BY created_at DESC LIMIT 1"`.
+
+**TODO(remove after 2026-08-08)** di `store.ts` bergantung pada verifikasi ini —
+jangan cabut shim-nya sebelum terbukti jalan di produksi.
