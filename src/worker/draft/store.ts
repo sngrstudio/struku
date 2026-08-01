@@ -19,6 +19,7 @@ interface DraftRow {
 	category: string;
 	date: string;
 	asset_slug: string;
+	raw_text: string | null;
 	created_at: number;
 	schedule_id: string | null;
 	edit_field: string | null;
@@ -33,6 +34,9 @@ function rowToDraft(row: DraftRow): PendingDraft {
 		category: row.category as PendingDraft["category"],
 		date: row.date,
 		assetSlug: row.asset_slug as PendingDraft["assetSlug"],
+		// Drafts created before ticket 22 have no raw_text; they commit with a
+		// NULL description rather than failing (the text was never stored).
+		rawText: row.raw_text,
 		createdAt: row.created_at,
 		scheduleId: row.schedule_id,
 	};
@@ -48,11 +52,25 @@ export function ensureDraftTable(sql: SqlTag): void {
 			category TEXT NOT NULL,
 			date TEXT NOT NULL,
 			asset_slug TEXT NOT NULL,
+			raw_text TEXT,
 			created_at INTEGER NOT NULL,
 			schedule_id TEXT,
 			edit_field TEXT
 		)
 	`;
+
+	// Ticket 22: CREATE TABLE IF NOT EXISTS is a no-op for Coordinators whose
+	// table predates raw_text, so the column is added explicitly. ADD COLUMN on
+	// an existing column throws, hence the check first. This is the DO-side
+	// equivalent of a migration; D1 has real migration files, this.sql does not.
+	//
+	// TODO(remove after 2026-08-08): drafts expire via DRAFT_TIMEOUT_SECONDS, so
+	// every live Coordinator has this column within hours of deploy — after that
+	// this is a PRAGMA on every draft read/write buying nothing.
+	const columns = sql<{ name: string }>`PRAGMA table_info(pending_drafts)`;
+	if (!columns.some((c) => c.name === "raw_text")) {
+		void sql`ALTER TABLE pending_drafts ADD COLUMN raw_text TEXT`;
+	}
 }
 
 /** EC-TXT-03: a new transaction message while a draft is pending starts a new
@@ -91,8 +109,8 @@ export function saveDraft(sql: SqlTag, draft: PendingDraft): void {
 	ensureDraftTable(sql);
 	void sql`
 		INSERT INTO pending_drafts
-			(entry_id, txn_type, amount, currency, category, date, asset_slug, created_at, schedule_id, edit_field)
-		VALUES (${draft.entryId}, ${draft.txnType}, ${draft.amount}, ${draft.currency}, ${draft.category}, ${draft.date}, ${draft.assetSlug}, ${draft.createdAt}, ${draft.scheduleId}, NULL)
+			(entry_id, txn_type, amount, currency, category, date, asset_slug, raw_text, created_at, schedule_id, edit_field)
+		VALUES (${draft.entryId}, ${draft.txnType}, ${draft.amount}, ${draft.currency}, ${draft.category}, ${draft.date}, ${draft.assetSlug}, ${draft.rawText}, ${draft.createdAt}, ${draft.scheduleId}, NULL)
 	`;
 }
 

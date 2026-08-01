@@ -13,6 +13,11 @@ export interface CommitTransactionInput {
 	category: CategorySlug;
 	date: string; // 'YYYY-MM-DD'
 	assetSlug: "cash" | "bank" | "ewallet";
+	// Ticket 22: the user's raw text, stored verbatim — typos and personal notes
+	// included, deliberately not normalized. null when unknown (drafts predating
+	// 22 never stored it), which is also what pre-22 entries hold, so read paths
+	// must handle NULL.
+	description: string | null;
 }
 
 export type CommitTransactionResult =
@@ -82,10 +87,17 @@ export async function commitTransaction(
 	await db.batch([
 		db
 			.prepare(
-				`INSERT INTO journal_entries (id, user_id, entry_date, source, currency, created_at)
-				 VALUES (?, ?, ?, 'text', ?, ?)`,
+				`INSERT INTO journal_entries (id, user_id, entry_date, description, source, currency, created_at)
+				 VALUES (?, ?, ?, ?, 'text', ?, ?)`,
 			)
-			.bind(input.entryId, input.userId, input.date, input.currency, now),
+			.bind(
+				input.entryId,
+				input.userId,
+				input.date,
+				input.description,
+				input.currency,
+				now,
+			),
 		...lines.map((line) =>
 			db
 				.prepare(

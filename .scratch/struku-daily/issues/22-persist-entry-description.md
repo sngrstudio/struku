@@ -1,7 +1,7 @@
 # 22 — Simpan teks asli transaksi ke `description`
 
 Type: grilling
-Status: open
+Status: resolved
 Blocked by: —
 
 ## Question
@@ -71,3 +71,105 @@ Kecil dan nyaris pasti bisa langsung `/implement` setelah butir 1 dan 2
 diputuskan. Kalau grilling-nya ternyata sesingkat dugaan, pertimbangkan
 menggabungkannya ke sesi yang sama dengan [23](23-draft-confirmation-surface.md)
 — keduanya menyentuh permukaan yang sama (apa yang user lihat saat konfirmasi).
+
+## Answer
+
+**`description` = label tampilan yang default-nya teks mentah user.** Bukan
+arsip. Istilah ini dipilih sengaja supaya "teks mentah" tidak salah dibaca
+sebagai janji immutability.
+
+### Butir 1 — apa yang disimpan: **teks mentah apa adanya**
+
+Pemilik repo ditanya membayangkan laporan tiket
+[16](16-reporting-query-surface.md) berisi baris teks mentah verbatim
+(*"warteg 25rb"*, *"gojek ke kantor 15k"*); jawabannya "enak, as intended".
+Yang ingin dilihat adalah apa yang diketik, bukan versi rapian mesin.
+
+Opsi "keterangan hasil normalisasi parser" **gugur**, dan itu keputusan yang
+murah — lihat temuan kode di bawah: opsi itu belum ada barangnya sama sekali.
+
+### Butir 2 — boleh diedit: **ya, di dua tempat**
+
+1. **Saat konfirmasi draft** — "keterangan" masuk ke daftar hal yang bisa
+   diedit (sekarang hanya jumlah/kategori/tanggal/jenis). Ini pekerjaan
+   [23](23-draft-confirmation-surface.md), murah: draft masih di tangan,
+   tidak ada yang perlu "ditunjuk".
+2. **Saat membaca laporan** — setelah entry ter-commit. Ini **tidak bisa
+   dikerjakan sekarang**: butuh cara menunjuk entry lama
+   ([17](17-post-commit-correction.md), ditunda) dan butuh laporan yang
+   menampilkan transaksi ([16](16-reporting-query-surface.md), blocked by
+   14, 20). Bukan blocker untuk 22 — jadi **alasan tambahan untuk membuka
+   17 lagi nanti**.
+
+**Konsekuensi yang diterima eksplisit:** saat diedit, teks asli **ditimpa**.
+Tidak ada kolom kedua, tidak ada migrasi tambahan. Alasannya: ini ledger
+pribadi harian, bukan sistem audit — satu penulis, satu pembaca. Menyimpan
+"apa yang diketik sebelum dirapikan" nilainya mendekati nol, sementara
+ongkosnya migrasi + satu konsep permanen yang harus terus diingat.
+
+Efek samping yang diterima: alasan awal menyimpan `description` (agar kata
+*"kopi"* di *"yang kopi tadi salah"* ada di kolom yang bisa dicari) **melemah
+setelah baris diedit**. Diterima, karena edit justru membuat teksnya lebih
+mudah ditunjuk, bukan lebih sulit.
+
+**Input pendek nol-informasi** (*"25rb"*, *"350"* — parser menerimanya karena
+`category` diisi AI, bukan oleh teks) **tidak dicegah di depan.** Tidak ada
+validasi/nag saat konfirmasi. Perbaikannya lewat jalur edit di atas.
+
+### Butir 3 — entry lama: **NULL, diterima**
+
+Backfill mustahil — teks aslinya memang tidak pernah disimpan. Jalur baca
+wajib menangani `description IS NULL` (relevan begitu 16 mendarat).
+
+### Butir 4 — ADR: **tidak ada ADR baru**
+
+ADR-0002 sudah memesan kolomnya; mengisinya bukan keputusan arsitektural
+baru. ADR-0005 **tidak tersentuh** justru karena butir 1 memilih teks mentah.
+Keputusan privasi (teks bebas tersimpan permanen, termasuk typo dan catatan
+pribadi) tercatat di sini dan sudah disebut eksplisit saat grilling
+[17](17-post-commit-correction.md) — cukup, tidak perlu ADR sendiri.
+
+## Temuan kode (dibaca saat grilling, mengoreksi asumsi tiket)
+
+Tiket ini ditulis sebelum kodenya dibaca; dua asumsinya keliru.
+
+1. **Opsi "normalisasi parser" di butir 1 tidak ada hari ini.** `ParseResult`
+   ([`parsing/types.ts:19-27`](../../../src/worker/parsing/types.ts)) **tidak
+   punya field deskripsi/merchant sama sekali** — hanya `intent`, `txn_type`,
+   `amount`, `currency`, `category`, `date`, `clarification`. Baris
+   *"Keterangan: Warteg"* pada flow tiket 23 **tidak diproduksi oleh apa pun**.
+   Mendapatkannya berarti revisi ADR-0005 + ubah prompt + ubah schema parser.
+2. **Teks mentah sudah di tangan saat draft dibuat, lalu dibuang.**
+   `startDraft()` ([`coordinator.ts:134-161`](../../../src/worker/coordinator.ts))
+   menerima `rawText`, memakainya **hanya** untuk `detectAssetAccountSlug()`
+   (baris 144), lalu membuangnya. `PendingDraft`
+   ([`draft/types.ts:6-16`](../../../src/worker/draft/types.ts)) tidak
+   membawanya, sehingga saat `confirmDraft()` (baris 163) teksnya sudah hilang.
+   **Implikasi implementasi: ini bukan sekadar menambah kolom ke `INSERT`** —
+   `PendingDraft` harus membawa teks itu sampai commit.
+3. **Kedua opsi butir 1 tidak setara ongkosnya.** Teks mentah = perubahan
+   lokal, nol dampak ADR. Normalisasi = revisi ADR-0005 + prompt + schema.
+   Tiket menyajikannya seolah setara.
+
+**Terverifikasi sesuai tiket** (tidak perlu koreksi): `journal_entries.description
+TEXT` ada dan nullable ([`0001_ledger_core.sql:66`](../../../migrations/0001_ledger_core.sql));
+`INSERT` di [`writer.ts:85-86`](../../../src/worker/ledger/writer.ts) hanya
+menulis 6 kolom; grep repo-wide memastikan **tidak ada apa pun di `src/` yang
+pernah menulis `description`**.
+
+## Jalan ke implementasi
+
+Ruang lingkup yang boleh dikerjakan sekarang:
+
+1. `PendingDraft` membawa `rawText` (`draft/types.ts` + `saveDraft`/`loadDraft`).
+2. `startDraft()` menyimpannya alih-alih membuangnya.
+3. `confirmDraft()` meneruskannya ke `commitTransaction()`.
+4. `INSERT` di `writer.ts` menulis kolom `description`.
+
+Di luar ruang lingkup 22: menampilkan & mengedit keterangan saat konfirmasi
+(→ [23](23-draft-confirmation-surface.md)), mengedit setelah commit
+(→ [17](17-post-commit-correction.md), masih ditunda).
+
+Catatan uji: jalur ini **tidak menyentuh `env.AI`**, jadi suite lokal cukup
+representatif — tapi ini jalur tulis harian yang hidup, jadi deploy sungguhan
+tetap sepadan sebelum dianggap beres.

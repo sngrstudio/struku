@@ -96,6 +96,34 @@ yang bikin dia berhenti.*
   [16](issues/16-reporting-query-surface.md) tetap sebaiknya menyaring `status`
   sejak awal.
 
+- [22 · Simpan teks asli transaksi ke `description`](issues/22-persist-entry-description.md)
+  (grilling) — **`description` = label tampilan yang default-nya teks mentah user,
+  bukan arsip.** Istilah itu dipilih sengaja: "teks mentah" di sini **bukan** janji
+  immutability. Yang disimpan adalah teks user apa adanya (*"warteg 25rb"*) —
+  pemilik repo membayangkan laporan [16](issues/16-reporting-query-surface.md)
+  berisi baris verbatim dan menyebutnya *"enak, as intended"*. Boleh diedit di
+  **dua** tempat: saat konfirmasi draft (→
+  [23](issues/23-draft-confirmation-surface.md), murah — draft masih di tangan)
+  dan saat membaca laporan (→ butuh
+  [17](issues/17-post-commit-correction.md) + [16](issues/16-reporting-query-surface.md),
+  **bukan blocker 22**, tapi jadi alasan tambahan membuka 17 lagi nanti). Saat
+  diedit teks asli **ditimpa** — tanpa kolom kedua, tanpa migrasi: ini ledger
+  pribadi, satu penulis satu pembaca, bukan sistem audit. Input pendek nol-informasi
+  (*"25rb"*) **tidak dicegah di depan**; perbaikannya lewat jalur edit.
+  `description` NULL untuk entry lama diterima (backfill mustahil). **Tidak ada ADR
+  baru** — ADR-0002 sudah memesan kolomnya, dan ADR-0005 **tak tersentuh** justru
+  karena teks mentah yang dipilih. **Tiga temuan kode yang mengoreksi tiket** (tiket
+  ditulis sebelum kodenya dibaca): (a) opsi "normalisasi parser" di butir 1 **tidak
+  ada barangnya** — `ParseResult` tak punya field deskripsi/merchant sama sekali,
+  jadi baris *"Keterangan: Warteg"* pada flow 23 tidak diproduksi apa pun, dan
+  mendapatkannya = revisi ADR-0005 + prompt + schema; (b) teks mentah **sudah di
+  tangan** saat `startDraft()` lalu dibuang (dipakai hanya untuk
+  `detectAssetAccountSlug`), `PendingDraft` tidak membawanya — jadi implementasinya
+  **bukan sekadar menambah kolom ke `INSERT`**, `PendingDraft` harus membawa teks
+  itu sampai commit; (c) kedua opsi butir 1 **tidak setara ongkosnya**, tiket
+  menyajikannya seolah setara. Jalur ini tidak menyentuh `env.AI`, tapi ini jalur
+  tulis harian yang hidup → deploy nyata tetap sepadan. Siap `/implement`.
+
 ## Not yet specified
 
 <!-- in-scope fog; graduates into tickets as the frontier advances -->
@@ -111,7 +139,11 @@ yang bikin dia berhenti.*
   laporan) tercatat di § "Arah yang dicondongi" tiket 17 — **bahan grilling,
   bukan kesepakatan**. Prasyarat diam-diamnya:
   [22](issues/22-persist-entry-description.md), tanpa itu menunjuk transaksi
-  pakai kata-kata mustahil.
+  pakai kata-kata mustahil. **Cakupannya bertambah dari 22 (resolved):** pemilik
+  repo ingin `description` bisa diedit **juga setelah commit**, saat membaca
+  laporan — jadi tiket koreksi nanti bukan cuma soal membetulkan
+  jumlah/kategori/tanggal, tapi juga teks keterangannya (ditimpa, bukan
+  di-versi).
 
 - **Akurasi kategori pada pemakaian nyata.** Pemilik repo melaporkan setidaknya
   satu transaksi masuk kategori yang salah, tapi frasa persisnya tidak tercatat
@@ -137,11 +169,14 @@ yang bikin dia berhenti.*
 - **Beban konfirmasi.** Tiap transaksi sekarang wajib dikonfirmasi. Belum
   terbukti mengganggu (belum dipakai harian), tapi kalau iya, pertanyaannya
   menyentuh ADR-0004 dan flow draft. Tunggu bukti pemakaian.
-  **Sekarang disentuh dari dua arah** — jangan diputuskan terpisah di keduanya:
+  **Sekarang disentuh dari tiga arah** — jangan diputuskan terpisah di ketiganya:
   [23](issues/23-draft-confirmation-surface.md) (seberapa banyak rincian setelah
-  commit sebelum jadi berisik) dan § "Arah yang dicondongi" tiket
+  commit sebelum jadi berisik), § "Arah yang dicondongi" tiket
   [17](issues/17-post-commit-correction.md) (apakah koreksi perlu konfirmasi
-  sendiri — condong tidak, belum diputuskan).
+  sendiri — condong tidak, belum diputuskan), dan
+  [22](issues/22-persist-entry-description.md) yang **menambah satu field lagi ke
+  permukaan konfirmasi** (keterangan ikut bisa diedit) — menambah beban pada flow
+  yang justru dicurigai sudah berat.
 - **Kategori kustom (§3.6).** Intent `category` sudah diklasifikasi tapi
   handler-nya stub. Apakah kategori bawaan (16 akun) cukup untuk pemakaian
   harian — belum terbukti. Tunggu bukti pemakaian.

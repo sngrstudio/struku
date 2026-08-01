@@ -152,6 +152,7 @@ export class Coordinator extends Agent<Env> {
 			category,
 			date,
 			assetSlug,
+			rawText,
 			createdAt: Date.now(),
 			scheduleId: schedule.id,
 		};
@@ -170,6 +171,7 @@ export class Coordinator extends Agent<Env> {
 			category: draft.category,
 			date: draft.date,
 			assetSlug: draft.assetSlug,
+			description: draft.rawText,
 		});
 		await this.removeDraft(draft);
 		return result.ok;

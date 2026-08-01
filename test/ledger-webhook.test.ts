@@ -286,6 +286,86 @@ describe("pending draft, confirm/edit/discard, double-entry commit (ticket 13)",
 		expect(results[0].amount_minor).toBe(100000);
 	});
 
+	// Ticket 22: description is a display label that defaults to the user's raw
+	// text — the text is captured at startDraft and must survive on PendingDraft
+	// all the way to commit (before 22 it was used for asset detection and
+	// dropped). Not an archive: once edit lands (ticket 23) it is overwritten.
+	it("commits the user's raw text verbatim into journal_entries.description", async () => {
+		const chatId = 850000008;
+		const userId = await seedOnboardedUser(String(chatId));
+		await injectCannedResult(userId, CLEAN_EXPENSE);
+
+		await send(chatId, "warteg 25rb");
+		await send(chatId, "confirm");
+
+		const { results } = await env.DB.prepare(
+			`SELECT description FROM journal_entries WHERE user_id = ?`,
+		)
+			.bind(userId)
+			.all<{ description: string | null }>();
+		expect(results).toHaveLength(1);
+		expect(results[0].description).toBe("warteg 25rb");
+	});
+
+	it("stores the text verbatim, without trimming or normalizing it", async () => {
+		const chatId = 850000011;
+		const userId = await seedOnboardedUser(String(chatId));
+		await injectCannedResult(userId, CLEAN_EXPENSE);
+
+		// Leading/trailing space and a typo: the ledger keeps user text as-is.
+		await send(chatId, "  wartegg  25rb  ");
+		await send(chatId, "confirm");
+
+		const { results } = await env.DB.prepare(
+			`SELECT description FROM journal_entries WHERE user_id = ?`,
+		)
+			.bind(userId)
+			.all<{ description: string | null }>();
+		expect(results[0].description).toBe("  wartegg  25rb  ");
+	});
+
+	it("keeps the original text after an edit changes another field", async () => {
+		const chatId = 850000009;
+		const userId = await seedOnboardedUser(String(chatId));
+		await injectCannedResult(userId, CLEAN_EXPENSE);
+
+		await send(chatId, "warteg 25rb");
+		await send(chatId, "edit");
+		await send(chatId, "jumlah");
+		await send(chatId, "50000"); // the edit reply must not become the description
+		await send(chatId, "confirm");
+
+		const { results } = await env.DB.prepare(
+			`SELECT description FROM journal_entries WHERE user_id = ?`,
+		)
+			.bind(userId)
+			.all<{ description: string | null }>();
+		expect(results[0].description).toBe("warteg 25rb");
+	});
+
+	it("carries each draft's own text when two drafts are pending (EC-TXT-03, LIFO)", async () => {
+		const chatId = 850000010;
+		const userId = await seedOnboardedUser(String(chatId));
+		await injectCannedResult(userId, CLEAN_EXPENSE);
+
+		await send(chatId, "warteg 25rb");
+		await injectCannedResult(userId, {
+			...CLEAN_EXPENSE,
+			amount: 100000,
+			category: "transport",
+		});
+		await send(chatId, "bensin 100rb");
+		await send(chatId, "confirm"); // resolves to the most recent draft
+
+		const { results } = await env.DB.prepare(
+			`SELECT description FROM journal_entries WHERE user_id = ?`,
+		)
+			.bind(userId)
+			.all<{ description: string | null }>();
+		expect(results).toHaveLength(1);
+		expect(results[0].description).toBe("bensin 100rb");
+	});
+
 	it("keeps a foreign-currency transaction in its own currency through commit", async () => {
 		const chatId = 850000007;
 		const userId = await seedOnboardedUser(String(chatId));

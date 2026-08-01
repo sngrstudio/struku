@@ -11,6 +11,11 @@ export interface PendingDraft {
 	category: CategorySlug;
 	date: string; // 'YYYY-MM-DD'
 	assetSlug: "cash" | "bank" | "ewallet";
+	// Ticket 22: the user's raw text, verbatim ("warteg 25rb"), carried here so
+	// confirmDraft can write it to journal_entries.description. It is a display
+	// label that defaults to raw text — not an archive: editing overwrites it.
+	// null only for drafts created before 22, which never stored the text.
+	rawText: string | null;
 	createdAt: number; // unix millis
 	scheduleId: string | null; // this.schedule()'s id, for cancelSchedule on confirm/discard
 }
