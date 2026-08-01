@@ -210,3 +210,9 @@ transaksi yang ter-commit**: pemilik repo menekan Edit lalu terjebak di mode edi
 tanpa jalan keluar → [24](24-edit-mode-escape.md). Jadi `description` terisi
 verbatim dan shim `ALTER TABLE` **masih belum terbukti di workerd**. Ulangi
 verifikasi setelah 24 selesai.
+
+🧊 **Terkena deployment freeze (map, 2026-08-01):** verifikasi ini **tidak
+dijadwalkan ulang sampai map selesai**. Utangnya tetap terbuka — jangan anggap
+lunas. **TODO(remove after 2026-08-08)** di `store.ts` juga **jangan dicabut**:
+tanggalnya akan lewat sebelum deploy terakhir, tapi shim-nya baru boleh dibuang
+setelah terbukti setiap Coordinator hidup punya kolom `raw_text`.

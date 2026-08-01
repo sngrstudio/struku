@@ -41,6 +41,32 @@ yang bikin dia berhenti.*
   `env.AI` atau `fetch`, `npm run test:live` + deploy nyata + `wrangler tail`
   itu **wajib**, bukan opsional.
 - **Mode:** planning-by-default (tidak ada override eksekusi).
+- **🧊 DEPLOYMENT FREEZE (diputuskan 2026-08-01, berlaku sampai map ini selesai).**
+  Tidak ada `wrangler deploy` sampai **map selesai dan tidak ada kesalahan**.
+  Pembangunan, commit, dan `npm test` jalan seperti biasa; hanya rilis ke
+  produksi yang ditahan, lalu dilakukan **sekali di akhir**.
+  - **Yang tidak ikut beku:** `npm run test:live`. Ia memanggil model sungguhan
+    tapi **tidak me-rilis apa pun**, jadi kontrak parser tetap bisa diuji lawan
+    `env.AI` asli. Tetap dipakai.
+  - ⚠️ **Risiko yang diterima sadar:** guardrail `env.AI` (`test:live` + deploy
+    nyata + `wrangler tail`) jadi **tertunda, bukan hilang**.
+    [23A](issues/23-draft-confirmation-surface.md) dan
+    [24](issues/24-edit-mode-escape.md) keduanya menyentuh seam itu dan akan
+    dibangun **tanpa pernah terbukti jalan di workerd** sampai verifikasi
+    terakhir. Kalau ada yang salah, ketahuannya menumpuk di akhir. Miniflare ≠
+    workerd tetap berlaku — dua bug produksi sudah pernah lolos lewat celah ini.
+  - **Utang verifikasi yang menunggu deploy terakhir** (jangan dianggap lunas):
+    [22](issues/22-persist-entry-description.md) (`description` verbatim + shim
+    `ALTER TABLE` di Coordinator lama) dan
+    [23B](issues/23-draft-confirmation-surface.md) (balasan tiga baris +
+    `Pengeluaran hari ini`). Keduanya sudah dibangun & hijau lokal, **belum
+    pernah terbukti di produksi**.
+  - **Kondisi produksi selama freeze:** versi terpasang `7436f2b5`, dan bot
+    **masih menjebak di mode edit** ([24](issues/24-edit-mode-escape.md)).
+    Tambalan cepat ditawarkan dan **ditolak** — konsisten dengan freeze.
+    Konsekuensinya: pemakaian harian nyata praktis terhenti, jadi fog yang
+    menunggu "bukti pemakaian" (beban konfirmasi, akurasi kategori, kategori
+    kustom, budget) **tidak akan bergerak** sampai freeze dicabut.
 
 ## Decisions so far
 

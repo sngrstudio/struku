@@ -292,6 +292,14 @@ penuh dan **tidak opsional**: `npm run test:live` + deploy nyata +
 `wrangler tail`. Suite lokal hijau **tidak membuktikan apa pun** di sini —
 miniflare ≠ workerd, dan dua bug produksi sudah pernah lolos lewat celah ini.
 
+🧊 **Disesuaikan oleh deployment freeze (map, 2026-08-01):** bagian guardrail
+yang masih bisa jalan sekarang hanya **`npm run test:live`** (memanggil model
+sungguhan, tidak me-rilis apa pun) — itu tetap **wajib** sebelum bagian A
+dianggap selesai. **Deploy nyata + `wrangler tail` tertunda ke akhir map**, jadi
+A akan dibangun tanpa pernah terbukti di workerd sampai saat itu. Risiko
+diterima sadar; **jangan menyatakan A "selesai dan terbukti"** sebelum
+verifikasi akhir.
+
 ## Catatan
 
 Guardrail map berlaku penuh di sini: **miniflare ≠ workerd**. Edit bahasa natural

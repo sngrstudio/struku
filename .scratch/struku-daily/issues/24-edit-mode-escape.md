@@ -94,6 +94,25 @@ Yang harus diputuskan:
 
 ## Catatan
 
+🧊 **Deployment freeze (map, 2026-08-01) — konsekuensi khusus untuk tiket ini.**
+Bug ini **hidup di produksi** (`7436f2b5`) dan **tidak akan diperbaiki di sana
+sampai map selesai**. Tambalan cepat (mengembalikan tombol `[Batal]` di balasan
+retry — nol panggilan AI, tidak mengunci desain apa pun) **ditawarkan dan
+ditolak**, konsisten dengan freeze.
+
+Konsekuensi yang harus diingat saat menjadwalkan sisa map:
+
+- Bot praktis **tidak bisa dipakai harian dengan nyaman** — menekan Edit
+  menjebak, dan satu-satunya jalan keluar adalah menunggu 30 menit.
+- Karena itu, semua fog yang menunggu **"bukti pemakaian harian"** (beban
+  konfirmasi, akurasi kategori, kategori kustom, budget chat-native)
+  **tidak akan bergerak** selama freeze. Jangan menunggu bukti yang secara
+  struktural tidak mungkin terkumpul.
+- Verifikasi produksi [22](22-persist-entry-description.md) dan
+  [23B](23-draft-confirmation-surface.md) **terhalang oleh bug ini**, dan
+  sekarang **berlipat** dengan freeze: keduanya baru bisa dibuktikan setelah
+  24 selesai **dan** freeze dicabut.
+
 Ditemukan saat memverifikasi [22](22-persist-entry-description.md) dan
 [23](23-draft-confirmation-surface.md) bagian B di produksi. **Verifikasi itu
 sendiri belum selesai** — tidak ada transaksi yang berhasil ter-commit di sesi

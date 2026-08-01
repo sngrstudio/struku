@@ -64,9 +64,12 @@ export function ensureDraftTable(sql: SqlTag): void {
 	// an existing column throws, hence the check first. This is the DO-side
 	// equivalent of a migration; D1 has real migration files, this.sql does not.
 	//
-	// TODO(remove after 2026-08-08): drafts expire via DRAFT_TIMEOUT_SECONDS, so
-	// every live Coordinator has this column within hours of deploy — after that
-	// this is a PRAGMA on every draft read/write buying nothing.
+	// TODO(remove once verified in production): drafts expire via
+	// DRAFT_TIMEOUT_SECONDS, so every live Coordinator has this column within
+	// hours of a deploy — after that this is a PRAGMA on every draft read/write
+	// buying nothing. NOT date-based: the map's deployment freeze (2026-08-01)
+	// means this ships to production only at the end of the effort, so the
+	// clock starts at that deploy, not at the date this was written.
 	const columns = sql<{ name: string }>`PRAGMA table_info(pending_drafts)`;
 	if (!columns.some((c) => c.name === "raw_text")) {
 		void sql`ALTER TABLE pending_drafts ADD COLUMN raw_text TEXT`;
