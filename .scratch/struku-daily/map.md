@@ -124,6 +124,41 @@ yang bikin dia berhenti.*
   menyajikannya seolah setara. Jalur ini tidak menyentuh `env.AI`, tapi ini jalur
   tulis harian yang hidup → deploy nyata tetap sepadan. Siap `/implement`.
 
+- [23 · Konfirmasi draft: edit natural + balasan commit berrincian](issues/23-draft-confirmation-surface.md)
+  (grilling) — digrilling **dua tahap terpisah** karena ongkos A dan B jauh
+  berbeda. **B sudah dibangun** (`099ca39`); **A baru diputuskan, belum dibangun.**
+  **B — balasan commit:** rinciannya **echo**, bukan info baru; yang benar-benar
+  baru hanya angka harian. ⚠️ **B tidak menutup lubang deteksi kategori** yang
+  melahirkan tiket ini — temuan kode: kategori **sudah** tampil sebelum commit
+  ([`reply.ts:48`](../../src/worker/parsing/reply.ts)), jadi masalahnya **menekan
+  Konfirmasi tanpa membaca**, dan meng-echo teks yang sama tidak memperbaikinya.
+  Agregat "Pengeluaran hari ini": `entry_date` (bukan `created_at`), **hanya
+  pengeluaran bukan net**, **satu mata uang tanpa FX** (opsi A polos, tanpa label
+  — pengeluaran mata uang lain di hari sama diam-diam tak terhitung, diterima
+  sadar) → ADR-0002 utuh dan **23 tidak perlu di-block ke
+  [16](issues/16-reporting-query-surface.md)**. Jebakan riset
+  [14](issues/14-d1-aggregate-query-capability.md) (b) dan (c) ditangani di
+  [`ledger/daily-total.ts`](../../src/worker/ledger/daily-total.ts) — (c)
+  diverifikasi: tanpa `status='posted'`, entry `reversed` menggelembungkan total
+  25.000 → 124.000. **Jebakan (a) tidak ditangani** — agregat ini berjalan di atas
+  planner yang salah sampai [20](issues/20-stats-refresh-trigger.md) mendarat.
+  **A — edit bahasa natural (belum dibangun):** tetap di jalur draft, **bukan
+  intent baru** — `ParseResult` **sudah memuat keempat field yang bisa diedit**,
+  jadi kalimat edit dilempar ke `TextParser` yang ada dan field non-null diambil
+  sebagai delta → **ADR-0005 tidak tersentuh**. Semantiknya **menambal** (null =
+  jangan sentuh), bukan menulis ulang — opsi tulis-ulang sempat dipilih lalu
+  dibatalkan setelah terlihat bahwa kalimat contoh pemilik repo sendiri di
+  [17](issues/17-post-commit-correction.md) tidak jalan di mode itu.
+  **`currency` tidak pernah ikut diedit** (non-null, default `'IDR'` → tanpa ini
+  tiap edit menimpa draft USD jadi IDR, `$ 15` → `Rp 15`); ganti mata uang =
+  batalkan dan ketik ulang. **Dua mode gagal, dua mekanisme:** gagal terang
+  (semua null) → **fallback ke menu lama, yang dipertahankan** karena sudah hijau
+  di test, nol panggilan AI, dan satu-satunya jalur yang hidup saat `env.AI` mati;
+  gagal diam (terbaca tapi salah, *"jangan makan, tapi transport"* → `food`) →
+  **tampilan diff** (`Kategori: Makan → Transportasi`) hanya di jalur natural.
+  Guardrail: **A menyentuh `env.AI`**, jadi `test:live` + deploy nyata +
+  `wrangler tail` **wajib** — beda dari B yang tidak menyentuhnya.
+
 ## Not yet specified
 
 <!-- in-scope fog; graduates into tickets as the frontier advances -->
@@ -144,6 +179,21 @@ yang bikin dia berhenti.*
   laporan — jadi tiket koreksi nanti bukan cuma soal membetulkan
   jumlah/kategori/tanggal, tapi juga teks keterangannya (ditimpa, bukan
   di-versi).
+
+- **Lubang deteksi: menekan Konfirmasi tanpa membaca.** Digraduasikan dari
+  temuan [23](issues/23-draft-confirmation-surface.md) (2026-08-01) dan **masih
+  terbuka** — jangan dikira tertutup oleh 23. Grilling
+  [17](issues/17-post-commit-correction.md) merumuskannya sebagai *"user tidak
+  punya cara tahu kategorinya meleset"*, tapi pembacaan kode membantah itu:
+  kategori **sudah** tampil di permukaan konfirmasi sebelum commit
+  ([`reply.ts:48`](../../src/worker/parsing/reply.ts)). Jadi masalahnya bukan
+  informasinya tidak ada, melainkan **tidak dibaca**. Konsekuensinya, dua hal
+  yang tampak menutupnya sebenarnya tidak: balasan commit berrincian (23B) hanya
+  meng-echo teks yang sama sedetik kemudian, dan baris diff edit natural (23A)
+  hanya melindungi transaksi yang **kebetulan diedit**. Jangan diselesaikan
+  dengan menambah teks — itu justru arah yang sudah terbukti tidak bekerja;
+  tunggu bukti pemakaian harian soal seberapa sering ini benar-benar menggigit.
+  Terikat ke fog **"Beban konfirmasi"** di bawah.
 
 - **Akurasi kategori pada pemakaian nyata.** Pemilik repo melaporkan setidaknya
   satu transaksi masuk kategori yang salah, tapi frasa persisnya tidak tercatat
@@ -177,6 +227,13 @@ yang bikin dia berhenti.*
   [22](issues/22-persist-entry-description.md) yang **menambah satu field lagi ke
   permukaan konfirmasi** (keterangan ikut bisa diedit) — menambah beban pada flow
   yang justru dicurigai sudah berat.
+  **Jawaban parsial dari [23](issues/23-draft-confirmation-surface.md) (2026-08-01):**
+  prinsip yang dipakai adalah **rincian tambahan hanya di jalur yang butuh
+  pembuktian**, bukan di semua jalur — baris diff hanya muncul setelah edit
+  bahasa natural (jalur yang bisa salah menafsirkan), tidak setelah edit lewat
+  menu (user baru saja memilih field-nya). Fog ini **belum tertutup**: yang belum
+  terjawab adalah apakah konfirmasi per-transaksi itu sendiri terlalu berat, dan
+  itu menunggu bukti pemakaian harian.
 - **Kategori kustom (§3.6).** Intent `category` sudah diklasifikasi tapi
   handler-nya stub. Apakah kategori bawaan (16 akun) cukup untuk pemakaian
   harian — belum terbukti. Tunggu bukti pemakaian.

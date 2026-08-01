@@ -1,7 +1,7 @@
 # 23 — Konfirmasi draft: edit bahasa natural + balasan commit berrincian
 
 Type: grilling
-Status: claimed
+Status: resolved
 Blocked by: — (22 resolved 2026-08-01)
 
 ## Question
@@ -174,12 +174,109 @@ Ketiganya tetap berlaku dan **wajib** saat implementasi
 - **(c) `status` harus disaring** (`status = 'posted'`) atau reversal terhitung
   ganda begitu [17](17-post-commit-correction.md) mendarat.
 
-### Sisa yang belum diputuskan di tiket ini
+## Answer — bagian A (edit bahasa natural)
 
-Butir **1, 2, 3** (edit bahasa natural: intent baru atau tidak, penanganan parse
-gagal, menu lama dipertahankan atau tidak) dan butir **5** (seberapa banyak
-rincian sebelum jadi berisik — terikat ke fog "Beban konfirmasi" di map, yang
-sekarang disentuh dari tiga arah). Semua itu bagian **A**, giliran berikutnya.
+### Butir 1 — tetap di jalur draft, **bukan** intent baru → ADR-0005 utuh
+
+**Temuan kode yang menutup pertanyaan ini:** `ParseResult`
+([`parsing/types.ts:19-27`](../../../src/worker/parsing/types.ts)) **sudah
+memuat keempat field yang bisa diedit** — `amount`, `category`, `date`,
+`txn_type`. Jadi kalimat edit cukup dilempar ke `TextParser` yang sudah ada,
+lalu field non-null diambil sebagai delta. **Tidak perlu enum `intent` baru,
+tidak perlu parser baru, ADR-0005 tidak tersentuh.** Ini juga konsisten dengan
+ADR-0004 §2 yang sudah menempatkan balasan draft **sebelum** TextParser dipanggil
+([`coordinator.ts`](../../../src/worker/coordinator.ts)) — jalur edit adalah
+cabang di dalam penanganan draft, bukan intent tingkat atas.
+
+**Semantik delta: menambal, bukan menulis ulang.** Field yang **tidak disebut
+(null) berarti "jangan sentuh"**, bukan "kembalikan ke default".
+
+Opsi "tulis ulang" (yang tidak disebut kembali ke default) sempat dipilih karena
+terdengar lebih sederhana, lalu **dibatalkan setelah ongkosnya ditunjukkan**:
+untuk mengubah satu field, user harus mengetik ulang seluruh transaksi
+(*"belanja 25rb tanggal 15 januari pengeluaran"*), kalau tidak draft-nya rusak.
+Itu **lebih buruk daripada menu yang sudah ada**. Yang menentukan: kalimat contoh
+pemilik repo sendiri di [17](17-post-commit-correction.md) — *"Seharusnya
+kategori Makan dan Minum, dan jenisnya Pengeluaran"* — menyebut dua field dan
+**diam soal jumlah dan tanggal**, jelas berharap keduanya tidak tersentuh.
+Kalimat itu **tidak jalan** dalam mode tulis ulang. Ongkos kode kedua opsi
+praktis sama (satu aturan: ambil yang non-null).
+
+### Butir 1b — `currency` **tidak pernah ikut diedit**
+
+Aturan "null = jangan sentuh" jalan untuk empat field, **tapi tidak untuk
+`currency`**: field itu **non-null dengan default `'IDR'`**
+([`types.ts:23`](../../../src/worker/parsing/types.ts)), jadi ia tidak pernah
+"diam". Tanpa penanganan khusus, mengedit draft USD apa pun akan menimpanya
+jadi IDR — `$ 15` menjadi `Rp 15`, tanpa satu tanda pun di layar.
+
+**Keputusan: mata uang ditentukan saat draft dibuat, titik.** Mau ganti mata
+uang → batalkan, ketik ulang transaksinya. Alasan: mengganti mata uang berarti
+**transaksi lain**, bukan koreksi. Konsekuensi yang diterima: kalau AI salah
+membaca mata uang di awal, satu-satunya jalan keluar adalah membatalkan draft.
+
+Alternatif yang ditolak: membuat `currency` bisa diedit menuntut cara
+membedakan *"user menyebut IDR"* dari *"default-nya IDR"* — dan `ParseResult`
+tidak bisa membedakan itu, jadi itu **revisi ADR-0005**, hal yang justru
+dihindari di butir 1.
+
+### Butir 2 — dua mode gagal, dua mekanisme berbeda
+
+Bahasa bebas gagal dengan lebih banyak cara daripada menu, dan **yang berbahaya
+bukan yang terlihat**:
+
+- **Gagal terang** — parser mengembalikan semua null; tidak ada yang berubah.
+  Ditangani oleh **fallback ke menu** (butir 3).
+- **Gagal diam** — parser mengembalikan field yang **terbaca tapi salah**.
+  Contoh: *"jangan makan, tapi transport"* → AI menangkap `category: food`,
+  karena kata "makan" ada di kalimat meski maksudnya justru menolak.
+
+**Keputusan: setelah edit natural, tampilkan apa yang berubah — bukan hanya
+keadaan akhir.**
+
+```
+Kategori: Makan → Transportasi
+Pengeluaran Rp 25.000 — Transportasi (2026-01-15) Betul?
+```
+
+Hanya untuk **jalur edit natural**; jalur menu tetap seperti sekarang (di menu
+user baru saja memilih field-nya, jadi sudah tahu apa yang berubah).
+
+Alasan mekanisme ini penting: kesimpulan bagian B adalah masalah sebenarnya
+**menekan Konfirmasi tanpa membaca**. Edit natural menaruh jalur yang bisa salah
+menafsirkan kalimat **tepat sebelum tombol itu**. Baris diff membuat salah-tangkap
+**terlihat berbeda dari yang dimaksud**, tanpa user harus membandingkannya dengan
+ingatannya sendiri.
+
+⚠️ Ini juga **jawaban parsial untuk fog "Beban konfirmasi"** di map (butir 5
+tiket ini, dan map melarang memutuskannya terpisah): rincian tambahan
+**hanya ditambahkan di jalur yang butuh pembuktian**, tidak di semua jalur.
+
+### Butir 3 — menu lama **dipertahankan sebagai fallback**
+
+Natural duluan: tekan Edit → ketik bebas. Kalau parse **gagal terang** (semua
+null), jatuh ke menu lama.
+
+Alasan, bukan selera: menu **sudah dibangun dan sudah hijau di test**
+([`parse-edit-value.ts`](../../../src/worker/draft/parse-edit-value.ts) — regex
++ tabel alias, **nol panggilan AI**). Mempertahankannya berongkos nyaris nol —
+bukan menulis jalur kedua, melainkan **tidak menghapus jalur yang sudah ada** —
+dan ia satu-satunya jalur edit yang **tetap jalan saat `env.AI` mati**.
+
+Ditolak: membuang menu (tidak ada jalan keluar saat parse gagal berulang atau
+`env.AI` ngadat; juga menyentuh [15](15-conversational-surface.md), jangan
+diputuskan dua kali) dan menu-tetap-default (praktis tidak memberi apa-apa).
+
+**Catat batasnya:** jaring menu hanya menangkap **gagal terang**. **Gagal diam**
+tidak tertangkap olehnya — yang menangkap itu tampilan diff di butir 2. Dua
+mekanisme untuk dua mode gagal; jangan mengira salah satunya menutup keduanya.
+
+### Guardrail implementasi bagian A
+
+Berbeda dari bagian B, **A menyentuh seam `env.AI`**. Guardrail map berlaku
+penuh dan **tidak opsional**: `npm run test:live` + deploy nyata +
+`wrangler tail`. Suite lokal hijau **tidak membuktikan apa pun** di sini —
+miniflare ≠ workerd, dan dua bug produksi sudah pernah lolos lewat celah ini.
 
 ## Catatan
 
