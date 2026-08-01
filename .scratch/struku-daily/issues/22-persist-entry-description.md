@@ -201,3 +201,12 @@ Cara memverifikasi nanti: `npx wrangler tail` di satu terminal, kirim
 
 **TODO(remove after 2026-08-08)** di `store.ts` bergantung pada verifikasi ini —
 jangan cabut shim-nya sebelum terbukti jalan di produksi.
+
+**Percobaan verifikasi 2026-08-01 (deploy `7436f2b5`) — GAGAL DILAKUKAN, bukan
+gagal.** D1 dikosongkan dan migrasi dijalankan ulang; onboarding berhasil (1 user,
+16 akun). Draft **terbentuk dengan benar** (`"rokok malboro 55k"` →
+`Pengeluaran Rp 55.000`, `env.AI` terbukti sehat), tapi **tidak ada satu pun
+transaksi yang ter-commit**: pemilik repo menekan Edit lalu terjebak di mode edit
+tanpa jalan keluar → [24](24-edit-mode-escape.md). Jadi `description` terisi
+verbatim dan shim `ALTER TABLE` **masih belum terbukti di workerd**. Ulangi
+verifikasi setelah 24 selesai.

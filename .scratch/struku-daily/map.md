@@ -180,6 +180,23 @@ yang bikin dia berhenti.*
   jumlah/kategori/tanggal, tapi juga teks keterangannya (ditimpa, bukan
   di-versi).
 
+- ~~**Terjebak di mode edit.**~~ → digraduasikan jadi
+  [24 · Terjebak di mode edit: tidak ada jalan keluar](issues/24-edit-mode-escape.md)
+  (grilling, 2026-08-01). **Ditemukan di produksi**, bukan dari pembacaan kode:
+  saat memverifikasi deploy `7436f2b5`, pemilik repo menekan Edit lalu mengetik
+  *"Tidak jadi."* dan **terjebak** — `editState` yang terisi membuat
+  `parseDraftCommand` (yang **sudah** mengerti "batal") tak pernah terpanggil
+  lagi, dan balasan retry `kind: "text"` menghapus tombol `[Batal]` dari layar.
+  Satu-satunya jalan keluar: menunggu timeout 30 menit. **Menghalangi verifikasi
+  produksi [22](issues/22-persist-entry-description.md) dan
+  [23B](issues/23-draft-confirmation-surface.md)** — tidak ada transaksi yang
+  ter-commit di sesi itu, jadi keduanya **masih belum terbukti di workerd**.
+  Arahan pemilik repo: jalan keluarnya lewat **model**, bukan menambah kata ke
+  daftar sinonim → tiket ini **menyentuh `env.AI`** dan **tumpang tindih besar
+  dengan [23](issues/23-draft-confirmation-surface.md) bagian A**; pertimbangkan
+  menggabungkan implementasinya, karena 23A menjadikan "jatuh ke menu lama"
+  sebagai jaring pengaman padahal **menu lama itulah yang menjebak**.
+
 - **Lubang deteksi: menekan Konfirmasi tanpa membaca.** Digraduasikan dari
   temuan [23](issues/23-draft-confirmation-surface.md) (2026-08-01) dan **masih
   terbuka** — jangan dikira tertutup oleh 23. Grilling
@@ -194,6 +211,13 @@ yang bikin dia berhenti.*
   dengan menambah teks — itu justru arah yang sudah terbukti tidak bekerja;
   tunggu bukti pemakaian harian soal seberapa sering ini benar-benar menggigit.
   Terikat ke fog **"Beban konfirmasi"** di bawah.
+  ⚠️ **Bukti tandingan pertama (2026-08-01, sesi produksi):** pemilik repo
+  **membaca** ringkasan, melihat kategorinya meleset ("Hiburan" untuk rokok),
+  dan menekan Edit untuk memperbaikinya — lalu terjebak
+  ([24](issues/24-edit-mode-escape.md)). Jadi hambatan pertama yang terbukti
+  nyata **bukan** keengganan membaca, melainkan **biaya memperbaiki setelah
+  membaca**. Timbang ulang fog ini setelah 24 selesai; mungkin bentuk aslinya
+  salah.
 
 - **Akurasi kategori pada pemakaian nyata.** Pemilik repo melaporkan setidaknya
   satu transaksi masuk kategori yang salah, tapi frasa persisnya tidak tercatat

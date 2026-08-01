@@ -271,6 +271,20 @@ diputuskan dua kali) dan menu-tetap-default (praktis tidak memberi apa-apa).
 tidak tertangkap olehnya — yang menangkap itu tampilan diff di butir 2. Dua
 mekanisme untuk dua mode gagal; jangan mengira salah satunya menutup keduanya.
 
+### Status verifikasi produksi (2026-08-01)
+
+**Bagian B sudah dibangun (`099ca39`) dan ter-deploy (`7436f2b5`), tapi belum
+terbukti di workerd.** Percobaan verifikasi gagal dilakukan: draft terbentuk
+benar, lalu pemilik repo terjebak di mode edit → [24](24-edit-mode-escape.md).
+Tidak ada transaksi ter-commit, jadi balasan tiga baris + `Pengeluaran hari ini`
+belum pernah benar-benar tampil di produksi.
+
+⚠️ **Temuan 24 melemahkan satu keputusan bagian A:** butir 3 memilih menu lama
+sebagai jaring pengaman saat parse natural gagal terang — tapi 24 membuktikan
+**menu lama itu sendiri menjebak**. Jaring itu bocor. Putuskan 24 sebelum (atau
+bersamaan dengan) membangun bagian A; jangan bangun A di atas asumsi bahwa menu
+adalah tempat mendarat yang aman.
+
 ### Guardrail implementasi bagian A
 
 Berbeda dari bagian B, **A menyentuh seam `env.AI`**. Guardrail map berlaku
