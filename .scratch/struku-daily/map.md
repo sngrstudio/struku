@@ -237,6 +237,27 @@ yang bikin dia berhenti.*
   **prioritas rendah, tidak memblokir apa pun**, ambil hanya saat butuh kerjaan
   AFK.
 
+- **Arsitektur percakapan menyeluruh (arah baru pemilik repo, 2026-08-01).**
+  Dicatat di § "Arah dari pemilik repo" tiket
+  [15](issues/15-conversational-surface.md) — **arah, belum digrilling, belum
+  keputusan.** Isinya: tiap pesan lewat *LLM menebak maksud → business process →
+  LLM menyusun jawaban*, dengan "menebak maksud" mencakup **tambah vs ubah
+  entry**, obrolan ringan, dan mendeteksi pembicaraan yang keluar konteks.
+  **Ini membesarkan 15 dari "boleh ngobrol atau tidak" jadi arsitektur seluruh
+  bot**, dan menabrak tiga hal sekaligus: (a) **ADR-0005 §1 memutuskan satu
+  panggilan flat** — flow ini butuh dua, dan alasan ADR-nya load-bearing (skema
+  bersarang tembus 14s di spike); (b) balasan yang disusun model membuka
+  **halusinasi pada angka** di bot keuangan, sementara seluruh copy hari ini
+  deterministik dan benar; (c) *"tambah vs ubah"* adalah **`intent` baru** —
+  padahal [23A](issues/23-draft-confirmation-surface.md) baru saja diputuskan
+  **tanpa menyentuh ADR-0005** justru dengan memakai ulang field `ParseResult`
+  yang ada. ⚠️ **[15](issues/15-conversational-surface.md),
+  [23A](issues/23-draft-confirmation-surface.md), dan
+  [24](issues/24-edit-mode-escape.md) sekarang saling mengunci** — ketiganya soal
+  "kalimat bebas → maksud" di permukaan yang sama. **Jangan diputuskan
+  terpisah**; memutuskan satu tanpa dua lainnya menghasilkan desain yang
+  bertabrakan.
+
 - **Nada dan persona bot.** Kalau [15](issues/15-conversational-surface.md)
   memutuskan bot boleh ngobrol, "ngobrol seperti apa" adalah pertanyaan
   berikutnya — dan sebagian jawabannya soal selera, bukan arsitektur.

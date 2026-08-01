@@ -93,3 +93,63 @@ sapaan sebagai sapaan"**. Pertanyaannya jadi: apakah yang mengganggu itu
 apakah 2, 3, 4 masih hidup. Kalau jawabannya "perluas `unknown` saja",
 pertanyaan 3 (ingatan percakapan) kemungkinan besar langsung mati dan ini
 berhenti jadi revisi ADR.
+
+## Arah dari pemilik repo (2026-08-01) — **belum digrilling**
+
+Disampaikan setelah sesi produksi yang melahirkan [24](24-edit-mode-escape.md).
+Dicatat verbatim sebagai **arah**, bukan keputusan — konsekuensinya belum
+ditimbang, dan beberapa di antaranya mahal.
+
+> Flow untuk setiap interaksi chat adalah sebagaimana berikut:
+> User mengirimkan query → LLM memproses dan menebak maksud → lanjut business
+> process → LLM membuat jawaban yang sesuai → kirim jawaban ke user.
+>
+> Menebak maksud di sini termasuk:
+> - Menebak apakah user ingin menambah entry atau mengubah entry
+> - Menebak apakah user hanya ingin bercakap ringan saja
+> - Menebak apakah arah pembicaraan user sudah keluar dari konteks bot (yang di
+>   mana bot harus meluruskan kembali)
+
+### Kenapa ini lebih besar daripada tampaknya
+
+Arah ini **mengubah bentuk tiket 15 dari "boleh ngobrol atau tidak" menjadi
+"arsitektur percakapan seluruh bot"**. Empat konsekuensi yang harus digrilling
+sebelum apa pun dibangun:
+
+1. **Dua panggilan model per pesan, bukan satu.** Flow di atas menempatkan LLM di
+   **awal** (menebak maksud) *dan* di **akhir** (menyusun jawaban). Ini langsung
+   melawan fakta kode #3 di atas: **ADR-0005 §1 memutuskan satu panggilan flat**,
+   dan itu load-bearing (skema bersarang bikin spiral whitespace tembus 14s di
+   spike). Anggaran NFR-PERF-01 5–10s dengan p95 ~2.4s untuk satu panggilan —
+   dua panggilan mungkin masih muat, tapi ini **revisi ADR-0005**, bukan tweak.
+2. **"LLM membuat jawaban" membuka permukaan halusinasi pada angka.** Seluruh
+   copy hari ini statis/deterministik. Kalau balasan disusun model, bot keuangan
+   bisa **mengarang angka** — dan pertanyaan 2 tiket ini sudah menandainya
+   (*"bot keuangan yang berhalusinasi soal uang itu mahal"*). Perlu batas keras:
+   misalnya model hanya boleh menyusun kalimat, sementara semua angka disisipkan
+   app dari nilai yang sudah dihitung.
+3. **"Menambah entry vs mengubah entry" adalah `intent` baru.** Enum ADR-0005
+   (`transaction | budget | category | query | unknown`) **tidak punya konsep
+   "ubah"**. Ini bersinggungan langsung dengan
+   [24](24-edit-mode-escape.md) (menafsirkan *"tidak jadi"* saat mode edit) dan
+   [23](23-draft-confirmation-surface.md) bagian A (edit bahasa natural) — yang
+   justru **diputuskan tanpa menyentuh ADR-0005** dengan cara memakai kembali
+   field `ParseResult` yang sudah ada. Arah ini membatalkan penghematan itu.
+   **Jangan diputuskan terpisah di tiga tempat.**
+4. **"Keluar konteks → bot meluruskan" butuh ingatan percakapan.** Menilai *arah
+   pembicaraan* tidak bisa dari satu pesan tunggal — ini menghidupkan pertanyaan
+   3 tiket ini (konteks percakapan di DO), yang sebelumnya diperkirakan bisa
+   mati murah.
+
+### Yang harus ditanyakan saat grilling
+
+- Apakah "LLM membuat jawaban" berlaku untuk **semua** balasan, atau hanya jalur
+  obrolan/klarifikasi? (Balasan transaksi hari ini deterministik dan **benar** —
+  mengubahnya jadi hasil generasi itu risiko tanpa imbalan jelas.)
+- Kalau dua panggilan model per pesan, apakah keduanya wajib **berurutan**?
+  Panggilan kedua hanya perlu jalan ketika balasannya memang tidak bisa disusun
+  dari copy statis.
+- Apakah "menebak maksud" menggantikan gerbang deterministik yang ada
+  ([`coordinator.ts:283-287`](../../../src/worker/coordinator.ts): intent +
+  amount + txn_type + category semuanya non-null → draft), atau duduk di
+  depannya? Gerbang itu **satu-satunya** yang menjaga uang tetap tercatat.
