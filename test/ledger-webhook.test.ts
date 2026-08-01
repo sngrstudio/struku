@@ -366,6 +366,139 @@ describe("pending draft, confirm/edit/discard, double-entry commit (ticket 13)",
 		expect(results[0].description).toBe("bensin 100rb");
 	});
 
+	// Ticket 23 part B: the commit reply echoes the transaction (a closing
+	// marker, not new information) and adds today's expense total — the one
+	// genuinely new thing. Shape decided in grilling: entry_date (not
+	// created_at), expenses only (not net), single-currency (option A plain).
+	it("commit reply echoes the transaction and adds today's expense total", async () => {
+		const chatId = 850000012;
+		const userId = await seedOnboardedUser(String(chatId));
+		await injectCannedResult(userId, CLEAN_EXPENSE);
+
+		await send(chatId, "warteg 25rb");
+		const ack = await send(chatId, "confirm");
+
+		expect(ack.text).toContain("Rp 25.000");
+		expect(ack.text).toContain("Makan");
+		expect(ack.text).toContain("Rp 25.000"); // daily total: the only entry so far
+		expect(ack.text.toLowerCase()).toContain("hari ini");
+	});
+
+	it("sums same-day expenses into the daily total", async () => {
+		const chatId = 850000013;
+		const userId = await seedOnboardedUser(String(chatId));
+
+		await injectCannedResult(userId, CLEAN_EXPENSE);
+		await send(chatId, "warteg 25rb");
+		await send(chatId, "confirm");
+
+		await injectCannedResult(userId, { ...CLEAN_EXPENSE, amount: 100000, category: "transport" });
+		await send(chatId, "bensin 100rb");
+		const ack = await send(chatId, "confirm");
+
+		expect(ack.text).toContain("Rp 125.000");
+	});
+
+	// Trap (b) from research 14: a naive direction='debit' filter also catches
+	// the cash leg of an income entry. Income must not appear in the total.
+	it("excludes income from the daily expense total (not net)", async () => {
+		const chatId = 850000014;
+		const userId = await seedOnboardedUser(String(chatId));
+
+		await injectCannedResult(userId, CLEAN_EXPENSE);
+		await send(chatId, "warteg 25rb");
+		await send(chatId, "confirm");
+
+		await injectCannedResult(userId, {
+			...CLEAN_EXPENSE,
+			txn_type: "income",
+			amount: 5000000,
+			category: "salary",
+		});
+		await send(chatId, "gaji 5jt");
+		const ack = await send(chatId, "confirm");
+
+		// Committing income still reports the day's EXPENSES — 25.000, untouched
+		// by the 5.000.000 income. The echo line does show the income that was
+		// just committed, so the total line is asserted on specifically.
+		const totalLine = ack.text
+			.split("\n")
+			.find((l) => l.toLowerCase().includes("hari ini"));
+		expect(totalLine).toContain("Rp 25.000");
+		expect(totalLine).not.toContain("5.000.000");
+		expect(totalLine).not.toContain("4.975.000"); // not net either
+	});
+
+	// "Today" means entry_date, not created_at: a backdated entry recorded now
+	// belongs to its own accounting date, so it must not inflate today's total.
+	it("counts by entry_date, so a backdated entry stays out of today's total", async () => {
+		const chatId = 850000015;
+		const userId = await seedOnboardedUser(String(chatId));
+
+		await injectCannedResult(userId, { ...CLEAN_EXPENSE, date: "2026-01-10", amount: 99000 });
+		await send(chatId, "belanja kemarin 99rb");
+		await send(chatId, "confirm");
+
+		await injectCannedResult(userId, CLEAN_EXPENSE); // date 2026-01-15
+		await send(chatId, "warteg 25rb");
+		const ack = await send(chatId, "confirm");
+
+		expect(ack.text).toContain("Rp 25.000");
+		expect(ack.text).not.toContain("Rp 124.000"); // the 2026-01-10 entry is not today's
+	});
+
+	// Option A (plain): only the committed transaction's own currency is
+	// totalled. A same-day USD expense is silently out of scope — accepted
+	// deliberately; seeing it is ticket 16's job.
+	it("totals only the committed transaction's currency", async () => {
+		const chatId = 850000016;
+		const userId = await seedOnboardedUser(String(chatId));
+
+		// $15 = 1500 minor units. If the currency filter were missing, those
+		// 1500 would be added to the IDR total (25.000 -> 26.500), so asserting
+		// the exact IDR figure is what proves the separation.
+		await injectCannedResult(userId, {
+			...CLEAN_EXPENSE,
+			currency: "USD",
+			amount: 15,
+			category: "entertainment",
+		});
+		await send(chatId, "netflix 15 usd");
+		await send(chatId, "confirm");
+
+		await injectCannedResult(userId, CLEAN_EXPENSE);
+		await send(chatId, "warteg 25rb");
+		const ack = await send(chatId, "confirm");
+
+		const totalLine = ack.text
+			.split("\n")
+			.find((l) => l.toLowerCase().includes("hari ini"));
+		expect(totalLine).toContain("Rp 25.000");
+		expect(totalLine).not.toContain("Rp 26.500"); // the USD legs did not leak in
+	});
+
+	// The USD side of the same split, to pin the exponent handling: a USD total
+	// must render in major units ($ 15), not raw minor units ($ 1.500).
+	it("renders a foreign-currency daily total in major units", async () => {
+		const chatId = 850000017;
+		const userId = await seedOnboardedUser(String(chatId));
+
+		await injectCannedResult(userId, {
+			...CLEAN_EXPENSE,
+			currency: "USD",
+			amount: 15,
+			category: "entertainment",
+		});
+		await send(chatId, "netflix 15 usd");
+		const ack = await send(chatId, "confirm");
+
+		const totalLine = ack.text
+			.split("\n")
+			.find((l) => l.toLowerCase().includes("hari ini"));
+		expect(totalLine).toContain("$ 15");
+		expect(totalLine).not.toContain("1.500");
+	});
+
 	it("keeps a foreign-currency transaction in its own currency through commit", async () => {
 		const chatId = 850000007;
 		const userId = await seedOnboardedUser(String(chatId));

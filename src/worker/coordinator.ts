@@ -7,7 +7,12 @@ import {
 	type Locale,
 	type OnboardingContext,
 } from './onboarding/types';
-import { decideDraftCommand, decideEditValue, draftConfirmPrompt } from './draft/logic';
+import {
+	committedReply,
+	decideDraftCommand,
+	decideEditValue,
+	draftConfirmPrompt,
+} from './draft/logic';
 import { DRAFT_COPY } from './draft/copy';
 import {
 	deleteDraft,
@@ -19,6 +24,7 @@ import {
 } from './draft/store';
 import type { PendingDraft } from './draft/types';
 import { commitTransaction } from './ledger/writer';
+import { sumExpensesOnDate } from './ledger/daily-total';
 import { uuidv7 } from './lib/uuidv7';
 import { detectAssetAccountSlug } from './ledger/payment-method';
 import { buildParseReply } from './parsing/reply';
@@ -215,8 +221,18 @@ export class Coordinator extends Agent<Env> {
 		}
 		// commit
 		const committed = await this.confirmDraft(draft);
-		const copy = DRAFT_COPY[locale];
-		return { kind: 'text', text: committed ? copy.committed : copy.commitFailed };
+		if (!committed) {
+			return { kind: 'text', text: DRAFT_COPY[locale].commitFailed };
+		}
+		// Ticket 23B: the day's expense total is read AFTER the write, so the
+		// transaction just committed is included in it.
+		const dailyTotal = await sumExpensesOnDate(
+			this.env.DB,
+			this.name,
+			draft.date,
+			draft.currency,
+		);
+		return committedReply(draft, dailyTotal, locale);
 	}
 
 	// --- Dispatch -------------------------------------------------------------

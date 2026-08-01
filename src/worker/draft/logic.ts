@@ -1,5 +1,6 @@
 import type { Locale } from "../onboarding/types";
 import type { OutboundAction } from "../messaging/types";
+import { formatAmount } from "../parsing/format-amount";
 import { transactionSummaryLine } from "../parsing/reply";
 import { parseDraftCommand, type DraftCommand } from "./command";
 import { CONFIRM_PROMPT_OPTIONS, DRAFT_COPY } from "./copy";
@@ -47,6 +48,30 @@ function draftConfirmPrompt(draft: PendingDraft, locale: Locale): OutboundAction
 		text: `${summary} ${DRAFT_COPY[locale].confirmQuestion}`,
 		options: CONFIRM_PROMPT_OPTIONS[locale],
 	};
+}
+
+/**
+ * Ticket 23B: the reply after a successful commit. The transaction line is a
+ * deliberate echo of what the user just confirmed — a closing marker, not new
+ * information. The one genuinely new thing is the day's expense total, which
+ * the caller supplies (it is a D1 read; this stays pure).
+ */
+export function committedReply(
+	draft: PendingDraft,
+	dailyTotalMajor: number,
+	locale: Locale,
+): OutboundAction {
+	const copy = DRAFT_COPY[locale];
+	const summary = transactionSummaryLine(
+		draft.txnType,
+		draft.amount,
+		draft.currency,
+		draft.category,
+		draft.date,
+		locale,
+	);
+	const total = copy.dailyExpenseTotal(formatAmount(dailyTotalMajor, draft.currency));
+	return { kind: "text", text: `${copy.committed}\n${summary}\n${total}` };
 }
 
 const EDIT_FIELD_PROMPTS = {

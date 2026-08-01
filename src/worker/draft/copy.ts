@@ -26,6 +26,10 @@ export const DRAFT_COPY: Record<
 		askNewDate: string;
 		askNewDirection: string;
 		commitFailed: string;
+		// Ticket 23B: label for the day's expense total in the commit reply.
+		// Deliberately unlabelled by currency (option A plain) — a same-day
+		// expense in another currency is not counted and not mentioned.
+		dailyExpenseTotal: (amountText: string) => string;
 	}
 > = {
 	id: {
@@ -39,6 +43,7 @@ export const DRAFT_COPY: Record<
 		askNewDate: "Tanggalnya kapan? (YYYY-MM-DD)",
 		askNewDirection: "Ini pemasukan atau pengeluaran?",
 		commitFailed: "Waduh, ada yang salah pas nyimpen. Coba kirim ulang transaksinya ya.",
+		dailyExpenseTotal: (amountText) => `Pengeluaran hari ini: ${amountText}`,
 	},
 	en: {
 		confirmQuestion: "Look good?",
@@ -51,5 +56,6 @@ export const DRAFT_COPY: Record<
 		askNewDate: "What date? (YYYY-MM-DD)",
 		askNewDirection: "Is this income or an expense?",
 		commitFailed: "Something went wrong saving that. Please send the transaction again.",
+		dailyExpenseTotal: (amountText) => `Today's expenses: ${amountText}`,
 	},
 };
