@@ -17,28 +17,57 @@
 	"assets": {
 		"directory": "./dist/client",
 		"not_found_handling": "single-page-application"
-	}
+	},
 	/**
-	 * Smart Placement
-	 * https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
+	 * D1 — ledger system-of-record (ADR-0001/0002). Committed journal entries only.
+	 * database_id is a per-account resource created at deploy time (`wrangler d1
+	 * create struku-ledger`); the placeholder below is fine for `wrangler types`
+	 * and for local/vitest runs (miniflare simulates D1 locally, ignoring the id).
 	 */
-	// "placement": {  "mode": "smart" }
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "struku-ledger",
+			"database_id": "ec2a3f70-a972-4caf-9c12-d835d94befdd",
+			"migrations_dir": "migrations"
+		}
+	],
 	/**
-	 * Bindings
-	 * Bindings allow your Worker to interact with resources on the Cloudflare Developer Platform, including
-	 * databases, object storage, AI inference, real-time communication and more.
-	 * https://developers.cloudflare.com/workers/runtime-apis/bindings/
+	 * Workers AI — free-text transaction parsing (ADR-0005).
 	 */
+	"ai": {
+		"binding": "AI"
+	},
 	/**
-	 * Environment Variables
-	 * https://developers.cloudflare.com/workers/wrangler/configuration/#environment-variables
-	 * Note: Use secrets to store sensitive data.
-	 * https://developers.cloudflare.com/workers/configuration/secrets/
+	 * TELEGRAM_BOT_TOKEN is a Workers Secret (`wrangler secret put`), never
+	 * committed. Declaring it here (rather than relying on .dev.vars
+	 * inference) is what makes `wrangler types` type it on Env, and gets
+	 * local-dev validation for free. Its presence/absence also doubles as
+	 * tracer #1's activation gate (ADR-0004 §3): a single Telegram channel
+	 * is "active" iff the secret is configured (spec Out of Scope - no
+	 * channel_configs DB row in this slice).
 	 */
-	// "vars": {  "MY_VARIABLE": "production_value" }
+	"secrets": {
+		"required": ["TELEGRAM_BOT_TOKEN"]
+	},
 	/**
-	 * Service Bindings (communicate between multiple Workers)
-	 * https://developers.cloudflare.com/workers/wrangler/configuration/#service-bindings
+	 * Per-user coordination actor built on the Agents SDK (ADR-0006). Each Agent
+	 * instance is a SQLite-backed Durable Object addressed by user_id.
 	 */
-	// "services": [  {   "binding": "MY_SERVICE",   "service": "my-service"  } ]
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "Coordinator",
+				"class_name": "Coordinator"
+			}
+		]
+	},
+	"migrations": [
+		{
+			"tag": "v1",
+			"new_sqlite_classes": [
+				"Coordinator"
+			]
+		}
+	]
 }
