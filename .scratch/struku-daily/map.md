@@ -32,6 +32,12 @@ yang bikin dia berhenti.*
   *apakah*.
 - **ADR 0001–0006 sudah committed dan closed.** Menambah kemampuan yang mengubah
   kontrak parsing (ADR-0005) adalah **revisi ADR**, bukan tweak prompt diam-diam.
+  ⚠️ **ADR-0005 §1 dan §2 sekarang punya revisi tertunda** dari
+  [15](issues/15-conversational-surface.md) (2026-08-02): satu-panggilan-flat →
+  dua panggilan, dan satu-model-terkunci → model berbeda per panggilan. **ADR-nya
+  belum ditulis** — keputusannya ada di tiket 15, dan menulis revisinya sebaiknya
+  menunggu [25](issues/25-small-model-for-reply-composition.md) supaya §2 bisa
+  menyebut model yang benar, bukan placeholder.
 - **Skills tiap sesi:** `/grilling` + `/domain-modeling` (default), `/prototype`
   (spike), `/research` (fakta eksternal). Catat keputusan sebagai ADR di
   `docs/adr/`, tambah istilah ke [`CONTEXT.md`](../../CONTEXT.md).
@@ -49,12 +55,17 @@ yang bikin dia berhenti.*
     tapi **tidak me-rilis apa pun**, jadi kontrak parser tetap bisa diuji lawan
     `env.AI` asli. Tetap dipakai.
   - ⚠️ **Risiko yang diterima sadar:** guardrail `env.AI` (`test:live` + deploy
-    nyata + `wrangler tail`) jadi **tertunda, bukan hilang**.
-    [23A](issues/23-draft-confirmation-surface.md) dan
-    [24](issues/24-edit-mode-escape.md) keduanya menyentuh seam itu dan akan
-    dibangun **tanpa pernah terbukti jalan di workerd** sampai verifikasi
-    terakhir. Kalau ada yang salah, ketahuannya menumpuk di akhir. Miniflare ≠
-    workerd tetap berlaku — dua bug produksi sudah pernah lolos lewat celah ini.
+    nyata + `wrangler tail`) jadi **tertunda, bukan hilang**. Setelah
+    [15](issues/15-conversational-surface.md) (2026-08-02) risiko ini **naik
+    tajam**: arsitektur barunya memanggil `env.AI` **dua kali per pesan** dan
+    melepas gerbang deterministik, jadi yang dibangun tanpa bukti workerd bukan
+    lagi satu-dua fitur melainkan **seluruh jalur masuk pesan**. Yang **bisa**
+    dibuktikan sekarang lewat `test:live` (tidak ikut beku): bentuk output
+    `reply` + `summary` tetap flat dan tidak spiral, plus kandidat model kecil
+    [25](issues/25-small-model-for-reply-composition.md). Yang **tidak bisa**:
+    latency dua panggilan berurutan di workerd asli lawan anggaran NFR-PERF-01
+    5–10s. Kalau tembus, ketahuannya menumpuk di ujung. Miniflare ≠ workerd tetap
+    berlaku — dua bug produksi sudah pernah lolos lewat celah ini.
   - **Utang verifikasi yang menunggu deploy terakhir** (jangan dianggap lunas):
     [22](issues/22-persist-entry-description.md) (`description` verbatim + shim
     `ALTER TABLE` di Coordinator lama) dan
@@ -185,6 +196,38 @@ yang bikin dia berhenti.*
   Guardrail: **A menyentuh `env.AI`**, jadi `test:live` + deploy nyata +
   `wrangler tail` **wajib** — beda dari B yang tidak menyentuhnya.
 
+- [15 · Permukaan percakapan → arsitektur percakapan menyeluruh](issues/15-conversational-surface.md)
+  (grilling) — **arah pemilik repo diterima penuh dan diperkeras jadi keputusan.**
+  Bentuk barunya: tiap pesan lewat **panggilan-1 (tebak maksud + ekstraksi) →
+  business process → panggilan-2 (susun jawaban + ringkasan)**. Enam keputusan:
+  (1) **semua** balasan disusun model, angka disisipkan app lewat **slot** — opsi
+  "hanya jalur obrolan" ditawarkan dan **ditolak**, alasannya rasa personal;
+  (2) panggilan-2 **selalu jalan**, pakai **model lebih kecil** (ADR-0005 §2
+  sendiri menulis kapan pengecualian boleh diambil), cadangan kirim dua tahap;
+  (3) panggilan-1 **menggantikan gerbang deterministik** — (a-penuh), bukan
+  (a-router); (4) kegagalan model dibalas *"sistem sedang bermasalah"* yang
+  dibedakan dari *"aku belum ngerti"*, **tanpa parser cadangan**; (5) ingatan
+  percakapan = **ringkasan berjalan dititipkan ke panggilan-2** sebagai output
+  kedua (`reply` + `summary`, dua string **flat** — yang bikin spiral 14s di
+  spike itu objek bersarang, bukan ini); (6) ringkasan **reset harian**, identitas
+  user (nama/locale/timezone dari tabel `users`) **tidak** ikut direset.
+  **Koreksi fakta:** gerbang menuntut **empat** field non-null (termasuk
+  `category`), bukan tiga — jadi hari ini transaksi yang kategorinya gagal
+  ditebak tak pernah jadi draft. ⚠️ **Ongkos yang ditunjukkan dua kali lalu tetap
+  dipilih:** [`workers-ai-text-parser.ts:77`](../../src/worker/parsing/workers-ai-text-parser.ts)
+  balikin `UNKNOWN_REPHRASE_RESULT` saat model gagal — **tidak pernah throw** —
+  dan hari ini yang menahannya justru gerbang itu. Seam ini **sudah pernah gagal
+  diam-diam di produksi** (`.response` salah bentuk → seluruh parse jatuh ke
+  unknown padahal model menjawab benar, lolos dari suite hijau). **Konsekuensi
+  diterima sadar: kalau `env.AI` mati, Struku tidak bisa mencatat apa pun.**
+  → **revisi ADR-0005 §1 + §2**, `intent` bertambah konsep "ubah",
+  **[23A](issues/23-draft-confirmation-surface.md) batal** (belum dibangun, tak
+  ada kode dibongkar), **[24](issues/24-edit-mode-escape.md) berubah bentuk**.
+  Digraduasikan: [25](issues/25-small-model-for-reply-composition.md) (riset model
+  kecil) dan [26](issues/26-spending-habits-memory.md) (kebiasaan belanja,
+  blocked by 16). **Lima hal belum tertutup** — tercatat di § "Yang belum
+  tertutup" tiket.
+
 ## Not yet specified
 
 <!-- in-scope fog; graduates into tickets as the frontier advances -->
@@ -263,26 +306,32 @@ yang bikin dia berhenti.*
   **prioritas rendah, tidak memblokir apa pun**, ambil hanya saat butuh kerjaan
   AFK.
 
-- **Arsitektur percakapan menyeluruh (arah baru pemilik repo, 2026-08-01).**
-  Dicatat di § "Arah dari pemilik repo" tiket
-  [15](issues/15-conversational-surface.md) — **arah, belum digrilling, belum
-  keputusan.** Isinya: tiap pesan lewat *LLM menebak maksud → business process →
-  LLM menyusun jawaban*, dengan "menebak maksud" mencakup **tambah vs ubah
-  entry**, obrolan ringan, dan mendeteksi pembicaraan yang keluar konteks.
-  **Ini membesarkan 15 dari "boleh ngobrol atau tidak" jadi arsitektur seluruh
-  bot**, dan menabrak tiga hal sekaligus: (a) **ADR-0005 §1 memutuskan satu
-  panggilan flat** — flow ini butuh dua, dan alasan ADR-nya load-bearing (skema
-  bersarang tembus 14s di spike); (b) balasan yang disusun model membuka
-  **halusinasi pada angka** di bot keuangan, sementara seluruh copy hari ini
-  deterministik dan benar; (c) *"tambah vs ubah"* adalah **`intent` baru** —
-  padahal [23A](issues/23-draft-confirmation-surface.md) baru saja diputuskan
-  **tanpa menyentuh ADR-0005** justru dengan memakai ulang field `ParseResult`
-  yang ada. ⚠️ **[15](issues/15-conversational-surface.md),
-  [23A](issues/23-draft-confirmation-surface.md), dan
-  [24](issues/24-edit-mode-escape.md) sekarang saling mengunci** — ketiganya soal
-  "kalimat bebas → maksud" di permukaan yang sama. **Jangan diputuskan
-  terpisah**; memutuskan satu tanpa dua lainnya menghasilkan desain yang
-  bertabrakan.
+- ~~**Arsitektur percakapan menyeluruh (arah baru pemilik repo).**~~ →
+  **diputuskan** di [15](issues/15-conversational-surface.md) (2026-08-02); lihat
+  Decisions so far. Yang **tersisa sebagai fog** dari situ, dan sengaja tidak
+  di-ticket karena belum cukup tajam: **bentuk kontrak slot angka.** Butir 1
+  memutuskan *prinsipnya* (model menyusun kalimat, app mengisi angka lewat slot),
+  tapi bentuknya belum ada — daftar slot yang sah, apa yang terjadi kalau model
+  menyebut slot yang tidak dikenal atau malah menulis angka langsung, dan
+  bagaimana itu diverifikasi sebelum dikirim ke user. Ini **satu-satunya
+  pertahanan** terhadap halusinasi angka di bot keuangan, jadi ia butuh bentuk
+  yang keras — tapi bentuknya kemungkinan besar baru terlihat saat
+  [25](issues/25-small-model-for-reply-composition.md) menunjukkan model kecil
+  mana yang dipakai dan seberapa nurut ia pada instruksi slot. Graduasikan
+  setelah 25.
+
+- **Apakah ringkasan percakapan diumpankan ke panggilan-1?**
+  [15](issues/15-conversational-surface.md) butir 5 memutuskan ringkasan
+  *dihasilkan* oleh panggilan-2; ke mana ia *dikonsumsi* belum diputuskan.
+  Mengumpankannya ke panggilan-1 membuat pesan `"warteg 25rb"` bisa terbaca
+  berbeda tergantung obrolan sebelumnya — dan setelah butir 3, panggilan-1 adalah
+  **satu-satunya** yang menentukan uang tercatat. Terikat ke dua lubang lain yang
+  juga lahir dari butir 3 dan sama-sama belum punya penyelesaian: **pesan ambigu
+  saat ada draft** (`"kopi 15rb"` — transaksi baru atau edit?) dan
+  **keluar-konteks yang kebetulan ada angkanya** (bisa jadi draft alih-alih
+  diluruskan). Ketiganya soal "seberapa banyak konteks yang boleh mempengaruhi
+  panggilan-1" — kemungkinan besar satu tiket, bukan tiga, tapi bentuknya baru
+  jelas setelah ada implementasi yang bisa dilihat.
 
 - **Nada dan persona bot.** Kalau [15](issues/15-conversational-surface.md)
   memutuskan bot boleh ngobrol, "ngobrol seperti apa" adalah pertanyaan

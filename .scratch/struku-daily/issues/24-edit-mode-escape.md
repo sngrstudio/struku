@@ -118,3 +118,72 @@ Ditemukan saat memverifikasi [22](22-persist-entry-description.md) dan
 sendiri belum selesai** — tidak ada transaksi yang berhasil ter-commit di sesi
 tersebut, jadi `description` terisi verbatim dan balasan commit berrincian
 **masih belum terbukti di workerd**. Bug ini yang menghalanginya.
+
+## Bentuk ulang setelah tiket 15 (2026-08-02)
+
+[15](15-conversational-surface.md) memutuskan arsitektur percakapan menyeluruh,
+dan itu **menjawab sebagian besar tiket ini secara tidak langsung**. Tiket tetap
+`open` — ada sisa yang harus diputuskan — tapi **empat pertanyaan di § Question
+tidak lagi berdiri seperti yang tertulis**. Baca bagian ini sebagai pengganti.
+
+### Yang sudah terjawab oleh 15
+
+- **Butir 1 (model dipanggil di titik mana).** Terjawab: **selalu**, di
+  panggilan-1. [15](15-conversational-surface.md) butir 3 memutuskan panggilan-1
+  **menggantikan** gerbang deterministik — tidak ada lagi "hanya setelah parser
+  deterministik gagal", karena tidak ada parser deterministik yang mendahuluinya.
+  Arahan pemilik repo di § di atas (*"bot harus bergantung pada processing model
+  untuk menentukan apa yang dimaksud user"*) sekarang berlaku untuk **seluruh
+  bot**, bukan hanya mode edit.
+- **Butir 3 (kalau model juga gagal).** Terjawab sebagian:
+  [15](15-conversational-surface.md) butir 4 memutuskan **tidak ada parser
+  cadangan deterministik**; kegagalan model dibalas *"sistem sedang bermasalah"*,
+  dibedakan dari *"aku belum ngerti"*. Yang **belum** terjawab: apakah mode edit
+  butuh dasar tambahan yang tidak bisa menjebak (menyerah setelah N kali) — lihat
+  di bawah.
+
+### Yang berubah bentuk
+
+- **Butir 2 (apa yang boleh disimpulkan model di mode edit)** bukan lagi
+  pertanyaan lokal. "Tambah entry vs ubah entry" sekarang **`intent` tingkat
+  atas** ([15](15-conversational-surface.md) butir 3, → revisi ADR-0005). Jadi
+  *"tidak jadi"* dan *"tetap sama"* tidak ditafsirkan oleh cabang khusus mode
+  edit — keduanya maksud yang dikenali panggilan-1. Pertanyaan aslinya (apakah
+  "batal" dan "kembali ke konfirmasi tanpa mengubah" dibedakan) **masih hidup**,
+  tapi jawabannya sekarang berbentuk **daftar maksud di enum**, bukan cabang
+  `if`.
+- **Jaring pengaman yang diandalkan [23](23-draft-confirmation-surface.md)
+  bagian A sudah mati dua kali.** Tiket ini menemukan menu lama itu sendiri
+  menjebak; [15](15-conversational-surface.md) butir 4 lalu menghapus fallback
+  deterministik sepenuhnya. Tidak ada lagi "jatuh ke menu lama".
+
+### Yang tersisa untuk diputuskan di tiket ini
+
+1. **Apakah `editState` masih ada sama sekali?** Mekanisme bug ini adalah
+   `editState` terisi → [`coordinator.ts:194-203`](../../../src/worker/coordinator.ts)
+   melompat ke `decideEditValue` dan `parseDraftCommand` tak pernah terpanggil.
+   Kalau panggilan-1 menafsirkan **setiap** pesan, state mode-edit yang
+   mem-bypass parser mungkin **tidak perlu ada**, dan bug ini hilang secara
+   struktural — bukan ditambal. Ini pertanyaan desain yang sebenarnya.
+2. **Butir 4 tetap berdiri sendiri: apakah tombol dikembalikan di balasan
+   retry?** Ini **tidak butuh model sama sekali** dan tidak dikunci oleh
+   [15](15-conversational-surface.md). Selama `[Batal]` terlihat, user tidak
+   pernah benar-benar terjebak — lapis dasar yang berlaku bahkan kalau `env.AI`
+   mati (yang sekarang berarti Struku tidak bisa mencatat apa pun,
+   [15](15-conversational-surface.md) butir 4).
+3. **Dasar yang tidak bisa menjebak.** Dengan panggilan-1 sebagai otoritas
+   tunggal, apa yang terjadi kalau ia salah menafsirkan berulang kali? Sisa dari
+   butir 3 asli.
+
+### Catatan tambahan
+
+⚠️ **Tiket ini sekarang bergantung pada [15](15-conversational-surface.md), tapi
+sengaja *tidak* di-block ke sana** — 15 sudah `resolved`, jadi tidak ada yang
+perlu ditunggu. Yang perlu diperhatikan: butir 2 di atas (mengembalikan tombol)
+**bisa diputuskan dan dibangun tanpa menyentuh arsitektur baru sama sekali**,
+sementara butir 1 dan 3 sebaiknya diputuskan bersama implementasi 15.
+
+Bug ini tetap **hidup di produksi** (`7436f2b5`) dan tetap **memblokir verifikasi
+produksi** [22](22-persist-entry-description.md) dan
+[23B](23-draft-confirmation-surface.md) — lihat § Catatan di atas. Freeze belum
+dicabut.

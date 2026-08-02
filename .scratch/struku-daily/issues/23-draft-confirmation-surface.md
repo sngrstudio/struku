@@ -176,6 +176,12 @@ Ketiganya tetap berlaku dan **wajib** saat implementasi
 
 ## Answer — bagian A (edit bahasa natural)
 
+> ⚠️ **DIBATALKAN oleh [15](15-conversational-surface.md) (2026-08-02).** Baca
+> § "Status bagian A setelah tiket 15" di bawah **sebelum** memakai apa pun di
+> bagian ini. Jawaban A di bawah dipertahankan utuh sebagai catatan sejarah —
+> alasan-alasannya masih berguna, tapi **premis intinya sudah runtuh**. Bagian B
+> **tidak terpengaruh** dan tetap berlaku (sudah dibangun, `099ca39`).
+
 ### Butir 1 — tetap di jalur draft, **bukan** intent baru → ADR-0005 utuh
 
 **Temuan kode yang menutup pertanyaan ini:** `ParseResult`
@@ -306,3 +312,61 @@ Guardrail map berlaku penuh di sini: **miniflare ≠ workerd**. Edit bahasa natu
 menyentuh seam `env.AI`, jadi `npm run test:live` + deploy nyata + `wrangler tail`
 **wajib** — suite lokal hijau tidak membuktikan apa pun. Dua bug produksi sudah
 pernah lolos lewat celah ini.
+
+## Status bagian A setelah tiket 15 (2026-08-02)
+
+**Bagian A dibatalkan. Bagian B tetap berlaku.**
+
+[15](15-conversational-surface.md) memutuskan arsitektur percakapan menyeluruh:
+setiap pesan lewat **panggilan-1 (tebak maksud + ekstraksi) → business process →
+panggilan-2 (susun jawaban + ringkasan)**, dan panggilan-1 **menggantikan**
+gerbang deterministik di
+[`coordinator.ts:283-287`](../../../src/worker/coordinator.ts).
+
+### Premis A yang runtuh
+
+Seluruh kemenangan bagian A bertumpu pada satu kalimat di butir 1: *"**Tidak
+perlu enum `intent` baru, tidak perlu parser baru, ADR-0005 tidak tersentuh.**"*
+
+Premis itu **tidak berlaku lagi**. [15](15-conversational-surface.md) menerima
+arah pemilik repo bahwa "menebak maksud" mencakup **tambah entry vs ubah entry**
+sebagai maksud tingkat atas — yaitu `intent` baru, yaitu **revisi ADR-0005**.
+Penghematan yang membuat A menang sudah hangus terlepas dari apa pun yang
+diputuskan di sini.
+
+### Yang masih hidup dari bagian A
+
+Alasan-alasannya, bukan mekanismenya:
+
+- **Semantik menambal, bukan menulis ulang** (field null = jangan sentuh). Ini
+  keputusan soal *makna*, bukan soal jalur kode — dan bukti pendukungnya masih
+  kuat: kalimat contoh pemilik repo sendiri di
+  [17](17-post-commit-correction.md) menyebut dua field dan diam soal dua
+  lainnya. Bawa ini ke desain `intent` "ubah".
+- **`currency` tidak pernah ikut diedit.** Alasannya murni mekanis (non-null,
+  default `'IDR'` → tiap edit menimpa draft USD jadi IDR, `$ 15` → `Rp 15`) dan
+  **tetap berlaku** di arsitektur baru.
+- **Tampilan diff untuk gagal diam** (*"jangan makan, tapi transport"* → `food`)
+  — prinsipnya, *rincian tambahan hanya di jalur yang butuh pembuktian*, tetap
+  masuk akal.
+
+### Yang mati
+
+- **Melempar kalimat edit ke `TextParser` yang ada dan mengambil field non-null
+  sebagai delta.** Diganti oleh panggilan-1 dengan `intent` "ubah".
+- **Fallback ke menu lama sebagai jaring pengaman.** Ini sudah rapuh sebelum 15 —
+  [24](24-edit-mode-escape.md) menemukan bahwa **menu lama itulah yang
+  menjebak**. Sekarang ia mati dua kali: [15](15-conversational-surface.md)
+  butir 4 memutuskan **tidak ada parser cadangan deterministik**; kegagalan model
+  dibalas *"sistem sedang bermasalah"*, bukan dialihkan ke jalur lain.
+
+### Tidak ada kode yang perlu dibongkar
+
+Bagian A **tidak pernah dibangun** — hanya diputuskan (`3188002`). Bagian B
+sudah dibangun (`099ca39`) dan **tidak terpengaruh**: ia tidak menyentuh
+`env.AI`, dan keputusannya (echo rincian + `Pengeluaran hari ini`, `entry_date`,
+satu mata uang tanpa FX) berdiri sendiri.
+
+⚠️ **Utang verifikasi bagian B tetap berdiri.** B masih belum pernah terbukti di
+workerd — lihat § Catatan di bawah dan
+[24](24-edit-mode-escape.md).
