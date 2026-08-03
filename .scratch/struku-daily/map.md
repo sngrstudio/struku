@@ -46,6 +46,19 @@ yang bikin dia berhenti.*
   Dua bug produksi lolos dari suite lokal yang hijau. Kalau menyentuh seam
   `env.AI` atau `fetch`, `npm run test:live` + deploy nyata + `wrangler tail`
   itu **wajib**, bukan opsional.
+- ⚠️ **Kanal dokumentasi bisa tertutup, tergantung environment.** Di sesi remote
+  2026-08-03, `developers.cloudflare.com` **dan** `docs.mcp.cloudflare.com`
+  ditolak egress policy (403 dari proxy; dikonfirmasi lewat
+  `$HTTPS_PROXY/__agentproxy/status`) — persis kedua kanal yang AGENTS.md tunjuk
+  untuk memenuhi aturan STOP-nya. `/root/.ccr/README.md` melarang mengakalinya.
+  Yang tersisa: `WebSearch` ber-`allowed_domains`, yang membaca halaman resminya
+  tapi mengembalikan **ringkasan, bukan tabel verbatim**. Efeknya asimetris —
+  klaim "angkanya cocok" tetap kuat, klaim "angka ini tidak ada di dokumentasi"
+  jadi lebih lemah. **Cek kanal ini di awal tiap sesi riset** dan tandai kelas
+  buktinya; jangan diam-diam menurunkan mutu bukti.
+  Kredensial Cloudflare juga tidak ada di environment remote (`wrangler whoami`
+  = not authenticated), jadi **`test:live` dan `wrangler d1 --remote` hanya bisa
+  dijalankan pemilik repo di mesinnya.**
 - **Mode:** planning-by-default (tidak ada override eksekusi).
 - **🧊 DEPLOYMENT FREEZE (diputuskan 2026-08-01, berlaku sampai map ini selesai).**
   Tidak ada `wrangler deploy` sampai **map selesai dan tidak ada kesalahan**.
@@ -196,6 +209,36 @@ yang bikin dia berhenti.*
   Guardrail: **A menyentuh `env.AI`**, jadi `test:live` + deploy nyata +
   `wrangler tail` **wajib** — beda dari B yang tidak menyentuhnya.
 
+- [21 · Seberapa luas dokumen skill yang divendor salah angka](issues/21-vendored-skill-doc-reliability.md)
+  (research) — **47% klaim numerik tidak bisa dipertanggungjawabkan** (23 dari 49
+  yang diadili di 7 subdir yang benar-benar disentuh Struku). Pola dominannya
+  **dikarang, bukan basi — 16 lawan 5**, dan **10 dari 16 karangan** berbentuk
+  tabel bertier free/paid, bentuk yang paling terbaca otoritatif (tabel "Plan Tier
+  Limits" `d1/gotchas.md:47-56`: 5 dari 8 baris tanpa padanan resmi). Yang basi
+  bergerak **ke arah aman** (batas resmi naik, dokumen tertinggal) jadi akibatnya
+  konservatif; yang dikarang **tidak akan membaik dengan menunggu upstream**.
+  **Hipotesis genre tiket gugur:** halaman referensi biasa **60%** bermasalah,
+  lebih buruk daripada `gotchas.md` **41%** — jadi mitigasi yang menyasar nama
+  file tidak bekerja. **Pola ketiga yang tak terduga:** angka resmi dipasang di
+  kamar yang salah (64 env-var-free dilabeli "bindings"; 25 MiB per-file dilabeli
+  "per deployment") — paling sulit dideteksi karena angkanya memang ada.
+  Karangan yang sama direplikasi lintas file (batch size 3×, session 15 menit 3×),
+  jadi tak ada satu file buruk yang bisa dikarantina. **Bentuk masalahnya bukan
+  kekurangan aturan:** `SKILL.md:29` sudah menyuruh percaya dokumentasi di atas
+  file referensi dan **menamai persis** kategori yang gagal (*"numeric limits,
+  pricing tiers"*) — peringatan cuma bekerja kalau pembacanya punya alasan curiga,
+  dan tabel bertier yang rapi menghapus alasan itu. → digraduasikan jadi
+  [27 · Mitigasi dokumen skill yang divendor](issues/27-vendored-skill-doc-mitigation.md)
+  (grilling, prioritas rendah, **butir 0-nya menanyakan apakah ia masuk
+  destination sama sekali**). ⚠️ **Bukti terdegradasi, dan ini permanen untuk
+  environment tanpa akses:** `developers.cloudflare.com` **dan**
+  `docs.mcp.cloudflare.com` ditolak egress policy (403) — **kedua kanal yang
+  AGENTS.md tunjuk**, diverifikasi independen sesi induk. Semua [DOC] lewat
+  `WebSearch`, jadi vonis COCOK kuat tapi vonis DIKARANG lebih lemah; riset layak
+  diulang saat `WebFetch` terbuka. 56 subdir lain tidak tersampel dan riset ini
+  **tidak berhak** mengklaim apa pun tentang mereka.
+  → [temuan lengkap](research/21-vendored-skill-doc-reliability.md).
+
 - [15 · Permukaan percakapan → arsitektur percakapan menyeluruh](issues/15-conversational-surface.md)
   (grilling) — **arah pemilik repo diterima penuh dan diperkeras jadi keputusan.**
   Bentuk barunya: tiap pesan lewat **panggilan-1 (tebak maksud + ekstraksi) →
@@ -295,16 +338,14 @@ yang bikin dia berhenti.*
   harian; kalau polanya muncul, ini bisa jadi ticket parsing tersendiri —
   terpisah dari "tidak bisa dibenerin", yang sudah ditangani
   [17 · Koreksi transaksi setelah commit](issues/17-post-commit-correction.md).
-- ~~**Keandalan dokumen skill yang divendor.**~~ → digraduasikan jadi
-  [21 · Seberapa luas dokumen skill yang divendor salah angka](issues/21-vendored-skill-doc-reliability.md)
-  (research, 2026-08-01). Riset [14](issues/14-d1-aggregate-query-capability.md)
-  menemukan `references/d1/gotchas.md` (ikut ter-commit di `5fa95a7`) menyebut
-  batas baris 1 MB padahal halaman limits resmi menyebut 2 MB, plus batas batch
-  bertier free/paid yang **tidak ada sama sekali** di dokumentasi. Aturan
-  AGENTS.md ("ambil dokumentasi terkini") menutupnya secara kebetulan. Tiket 21
-  mengukur seberapa luas ketidakcocokannya sebelum mitigasi apa pun diputuskan —
-  **prioritas rendah, tidak memblokir apa pun**, ambil hanya saat butuh kerjaan
-  AFK.
+- ~~**Keandalan dokumen skill yang divendor.**~~ → diukur di
+  [21](issues/21-vendored-skill-doc-reliability.md) (**resolved** 2026-08-03,
+  lihat Decisions so far), mitigasinya digraduasikan jadi
+  [27 · Mitigasi dokumen skill yang divendor](issues/27-vendored-skill-doc-mitigation.md)
+  (grilling, prioritas rendah, tidak memblokir apa pun). **Jangan dianggap
+  tertutup:** 21 hanya mengukur — tidak satu pun baris skill diperbaiki, dan
+  keputusan mitigasinya sengaja diserahkan ke 27, termasuk pertanyaan apakah ia
+  masuk destination map ini sama sekali.
 
 - ~~**Arsitektur percakapan menyeluruh (arah baru pemilik repo).**~~ →
   **diputuskan** di [15](issues/15-conversational-surface.md) (2026-08-02); lihat
