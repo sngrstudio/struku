@@ -23,8 +23,18 @@ import { describe, expect, it } from "vitest";
 // The reporter swallows console.log, so the transcript is forced out through a
 // deliberately failing assertion in the last test. Read it there.
 
+// Ranked by ticket 25's research. The order IS the experiment: 70B first as the
+// only model whose json_schema support is proven here (ADR-0005 §2), then the
+// candidates in the order they are worth disproving.
+//
+// Copy these ids from the live catalogue before trusting them — research 25 §1
+// found the pricing page and the model pages disagreeing on 8B naming
+// (`-fp8-fast` vs `-fast`), and a wrong id fails at RUNTIME, not build time.
 const CANDIDATES = [
-	"@cf/meta/llama-3.3-70b-instruct-fp8-fast", // ADR-0005 §2 baseline, for comparison
+	"@cf/meta/llama-3.3-70b-instruct-fp8-fast", // ADR-0005 §2 baseline: p50 ~1.7s / p95 ~2.4s
+	"@cf/zai-org/glm-4.7-flash", // primary: dialogue-tuned, 100+ languages, json_schema UNVERIFIED
+	"@cf/aisingapore/gemma-sea-lion-v4-27b-it", // backup: the only model whose docs name Indonesian
+	"@cf/meta/llama-3.1-8b-instruct-fast", // control only: does "smaller = faster" hold at all?
 ] as const;
 
 // The flat two-string contract from ticket 15 butir 5.

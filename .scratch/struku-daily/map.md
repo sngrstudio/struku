@@ -35,9 +35,17 @@ yang bikin dia berhenti.*
   ⚠️ **ADR-0005 §1 dan §2 sekarang punya revisi tertunda** dari
   [15](issues/15-conversational-surface.md) (2026-08-02): satu-panggilan-flat →
   dua panggilan, dan satu-model-terkunci → model berbeda per panggilan. **ADR-nya
-  belum ditulis** — keputusannya ada di tiket 15, dan menulis revisinya sebaiknya
-  menunggu [25](issues/25-small-model-for-reply-composition.md) supaya §2 bisa
-  menyebut model yang benar, bukan placeholder.
+  belum ditulis** — keputusannya ada di tiket 15.
+  ⚠️ **Rencana "tunggu 25 supaya §2 menyebut model yang benar" tidak jalan seperti
+  dugaan.** [25](issues/25-small-model-for-reply-composition.md) **resolved** tapi
+  **tidak memilih model** — ia mempersempit ke 2 kandidat + 1 kontrol dan menyerahkan
+  pilihan finalnya ke probe, karena latency dan kualitas generasi Bahasa Indonesia
+  **tidak dijawab dokumentasi untuk model mana pun**. Jadi §2 sekarang menunggu
+  **`npm run test:live`** (butuh pemilik repo), bukan menunggu tiket. Dua hal dari 25
+  yang **harus** masuk revisi ADR terlepas dari model mana yang menang: worst case
+  retry **9,6s** lawan anggaran 10s, dan `json_schema` sebagai **syarat seleksi
+  kandidat** — bukan properti yang diasumsikan — sehingga kontrak defensif §7 berlaku
+  untuk **kedua** panggilan.
 - **Skills tiap sesi:** `/grilling` + `/domain-modeling` (default), `/prototype`
   (spike), `/research` (fakta eksternal). Catat keputusan sebagai ADR di
   `docs/adr/`, tambah istilah ke [`CONTEXT.md`](../../CONTEXT.md).
@@ -209,6 +217,42 @@ yang bikin dia berhenti.*
   Guardrail: **A menyentuh `env.AI`**, jadi `test:live` + deploy nyata +
   `wrangler tail` **wajib** — beda dari B yang tidak menyentuhnya.
 
+- [25 · Model kecil mana untuk panggilan-2 (menyusun jawaban)](issues/25-small-model-for-reply-composition.md)
+  (research) — **tidak bisa memilih pemenang dari dokumentasi, dan itu temuannya.**
+  81 model dipersempit jadi **2 kandidat + 1 kontrol + 1 jawaban sah "tidak ada"**,
+  pilihan finalnya diserahkan ke probe: utama `@cf/zai-org/glm-4.7-flash`
+  (dialog-tuned, 100+ bahasa, biaya sekelas 8B), cadangan kualitas
+  `@cf/aisingapore/gemma-sea-lion-v4-27b-it` (**satu-satunya model yang dokumentasi
+  Cloudflare-nya menyebut Indonesian dengan nama**), kontrol
+  `@cf/meta/llama-3.1-8b-instruct-fast`. ⚠️ **Premis [15](issues/15-conversational-surface.md)
+  butir 2 tidak punya dasar:** Cloudflare **tidak mendokumentasikan latency untuk
+  model mana pun**, jadi "model kecil lebih cepat" — satu-satunya alasan memilih
+  model kecil — tak terbukti, dan di platform serverless bisa **salah** (antrian GPU
+  per model; model kecil yang jarang dipakai bisa lebih lambat). Kalau probe
+  menunjukkan begitu, jawaban jujurnya **70B untuk kedua panggilan**, dan riset ini
+  **memperkuat** kemungkinan itu. ⚠️ **Worst case 9,6s yang 15 butir 2 tidak
+  hitung:** ADR-0005 §7 mengizinkan satu retry per panggilan → 4 × 2,4s dari
+  anggaran 10s NFR-PERF-01, **tanpa margin**, sebelum D1 + Telegram → revisi ADR
+  harus menerimanya sadar **atau** membedakan kebijakan retry panggilan-2.
+  **Pertanyaan `json_schema` tidak terjawab dokumentasi** — daftar model JSON Mode
+  bahkan tidak memuat 70B yang repo ini pakai dan terbukti bekerja, jadi daftar itu
+  tak boleh jadi otoritas negatif; **15 butir 5 tidak batal**, tapi `json_schema`
+  jadi **syarat seleksi kandidat**, bukan properti yang boleh diasumsikan, dan
+  kontrak defensif ADR-0005 §7 **wajib juga untuk panggilan-2**. **JSON Mode tidak
+  streaming** → menutup jalan keluar "kirim dua tahap". **Peringatan yang paling
+  mudah terlewat:** ADR-0005 me-retire risiko Bahasa Indonesia untuk **ekstraksi**,
+  bukan **generasi** — buktinya tidak bisa dipinjam ke panggilan-2 bahkan untuk model
+  yang sama. Temuan di luar tiket: **prompt caching** (`x-session-affinity`) adalah
+  ungkitan gratis, tapi **reset harian 15 butir 6 mengundang tanggal masuk system
+  prompt dan itu merusak cache seluruhnya**; biaya tidak akan pernah mengikat (≈450
+  pesan/hari gratis), jadi memilih SEA-LION yang 7,8× lebih mahal murah dibayar; dan
+  **18 model dideprekasi 30 Mei 2026** dengan daftar yang gagal diekstrak — wajib
+  diverifikasi sebelum mengunci kandidat. Probe **sudah terisi** di
+  [`test/live/reply-composer-probe.test.ts`](../../test/live/reply-composer-probe.test.ts),
+  typecheck bersih, 77/77 tetap hijau — **belum dijalankan**, menunggu pemilik repo
+  (`npm run test:live`). Kanal terdegradasi seperti [21](issues/21-vendored-skill-doc-reliability.md).
+  → [temuan lengkap](research/25-small-model-for-reply-composition.md).
+
 - [21 · Seberapa luas dokumen skill yang divendor salah angka](issues/21-vendored-skill-doc-reliability.md)
   (research) — **47% klaim numerik tidak bisa dipertanggungjawabkan** (23 dari 49
   yang diadili di 7 subdir yang benar-benar disentuh Struku). Pola dominannya
@@ -356,10 +400,16 @@ yang bikin dia berhenti.*
   menyebut slot yang tidak dikenal atau malah menulis angka langsung, dan
   bagaimana itu diverifikasi sebelum dikirim ke user. Ini **satu-satunya
   pertahanan** terhadap halusinasi angka di bot keuangan, jadi ia butuh bentuk
-  yang keras — tapi bentuknya kemungkinan besar baru terlihat saat
-  [25](issues/25-small-model-for-reply-composition.md) menunjukkan model kecil
-  mana yang dipakai dan seberapa nurut ia pada instruksi slot. Graduasikan
-  setelah 25.
+  yang keras — tapi bentuknya baru terlihat setelah diketahui model mana yang
+  dipakai dan seberapa nurut ia pada instruksi slot.
+  ⚠️ **Masih di fog, dan syarat graduasinya bergeser.** Rencana semula "graduasikan
+  setelah [25](issues/25-small-model-for-reply-composition.md)" **tidak terpenuhi**:
+  25 resolved tanpa memilih model. Syaratnya sekarang **hasil probe**, bukan
+  resolusi tiket. Probe-nya
+  ([`test/live/reply-composer-probe.test.ts`](../../test/live/reply-composer-probe.test.ts))
+  sudah ikut mengukur disiplin slot — ia menandai model yang menulis digit ke
+  `reply` alih-alih membiarkan `{amount}` — jadi bahan bakunya akan ada begitu
+  pemilik repo menjalankannya.
 
 - **Apakah ringkasan percakapan diumpankan ke panggilan-1?**
   [15](issues/15-conversational-surface.md) butir 5 memutuskan ringkasan
