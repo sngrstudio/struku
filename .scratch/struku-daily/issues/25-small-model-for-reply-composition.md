@@ -1,7 +1,7 @@
 # 25 — Model kecil mana untuk panggilan-2 (menyusun jawaban)
 
 Type: research
-Status: open
+Status: claimed
 Blocked by: —
 
 ## Question

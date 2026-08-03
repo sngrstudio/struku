@@ -1,0 +1,169 @@
+import { env } from "cloudflare:test";
+import { describe, expect, it } from "vitest";
+
+// Ticket 25 probe — TEMPORARY, delete once its numbers are recorded in
+// .scratch/struku-daily/research/25-small-model-for-reply-composition.md.
+//
+// Non-gating: test/live/** is excluded from `npm test` (vitest.config.ts) and
+// only runs via `npm run test:live`, which needs live Cloudflare credentials
+// and burns real Workers AI neurons. It releases nothing, so it sits outside
+// the deployment freeze.
+//
+// What it answers, per ticket 25 "Cara memverifikasi":
+//   1. does each candidate honour response_format json_schema on a FLAT
+//      { reply, summary } object (ADR-0005 §1's nested-schema whitespace
+//      spiral must not come back),
+//   2. how long each call takes next to the 70B numbers in ADR-0005 §2
+//      (p50 ~1.7s / p95 ~2.4s), since two calls now run back to back inside
+//      NFR-PERF-01's 5-10s,
+//   3. whether the model leaves {slot} placeholders alone instead of writing
+//      numbers itself (ticket 15 butir 1 — the app fills the numbers),
+//   4. whether the Indonesian reads like a person wrote it.
+//
+// The reporter swallows console.log, so the transcript is forced out through a
+// deliberately failing assertion in the last test. Read it there.
+
+const CANDIDATES = [
+	"@cf/meta/llama-3.3-70b-instruct-fp8-fast", // ADR-0005 §2 baseline, for comparison
+] as const;
+
+// The flat two-string contract from ticket 15 butir 5.
+const REPLY_JSON_SCHEMA = {
+	type: "object",
+	properties: {
+		reply: { type: "string" },
+		summary: { type: "string" },
+	},
+	required: ["reply", "summary"],
+} as const;
+
+const SYSTEM_PROMPT = [
+	"You are Struku, a personal-finance chat bot. The user's language is Indonesian (id);",
+	"write casual, warm, short Indonesian — one or two sentences, no bullet points.",
+	"You are given the result of an action the app already performed.",
+	"NEVER write a number yourself. Use the placeholders exactly as given:",
+	"{amount}, {category}, {total_harian}. The app substitutes the real values.",
+	'Return two fields: "reply" (what the user reads) and "summary" (a one-line',
+	"running summary of the conversation so far, in Indonesian, for the next turn).",
+].join(" ");
+
+// One committed expense: the highest-traffic reply in the product today.
+const USER_TURN = [
+	"Action: recorded an expense.",
+	"amount={amount} category={category} today_total={total_harian}",
+	'User said: "warteg 25rb"',
+	"Previous summary: (none — first message today)",
+].join("\n");
+
+type Probe = {
+	model: string;
+	ms: number;
+	ok: boolean;
+	note: string;
+	reply: string;
+	summary: string;
+	raw: string;
+};
+
+function normalize(output: unknown): string {
+	// Same normalization as workers-ai-text-parser.ts:92-110 — the binding hands
+	// back an already-parsed object for json_schema calls on some runtimes and a
+	// JSON string on others, and only accepting the string form once silently
+	// produced "" for every live call.
+	if (typeof output === "string") return output;
+	if (output && typeof output === "object" && "response" in output) {
+		const { response } = output as { response: unknown };
+		if (typeof response === "string") return response;
+		if (response !== null && response !== undefined) {
+			return JSON.stringify(response);
+		}
+	}
+	return "";
+}
+
+const probes: Probe[] = [];
+
+describe("ticket 25: reply-composition candidates (live)", () => {
+	for (const model of CANDIDATES) {
+		it(`${model} returns a flat { reply, summary }`, async () => {
+			const started = Date.now();
+			let raw = "";
+			let note = "";
+			try {
+				const output = await env.AI.run(
+					model as Parameters<Ai["run"]>[0],
+					{
+						messages: [
+							{ role: "system", content: SYSTEM_PROMPT },
+							{ role: "user", content: USER_TURN },
+						],
+						response_format: {
+							type: "json_schema",
+							json_schema: REPLY_JSON_SCHEMA,
+						},
+						max_tokens: 512, // ADR-0005 §2: the 256 default truncates on 70B.
+					} as Parameters<Ai["run"]>[1],
+				);
+				raw = normalize(output);
+			} catch (error) {
+				// A model that rejects json_schema outright fails HERE, and that is
+				// itself the finding ticket 25 question 2 asks for — it invalidates
+				// ticket 15 butir 5's contract for that candidate.
+				note = `threw: ${error instanceof Error ? error.message : String(error)}`;
+			}
+			const ms = Date.now() - started;
+
+			let reply = "";
+			let summary = "";
+			let ok = false;
+			if (raw) {
+				try {
+					const parsed = JSON.parse(raw) as Record<string, unknown>;
+					reply = typeof parsed.reply === "string" ? parsed.reply : "";
+					summary = typeof parsed.summary === "string" ? parsed.summary : "";
+					ok = reply.length > 0 && summary.length > 0;
+					if (!ok) note ||= "parsed, but reply/summary missing or not a string";
+				} catch {
+					note ||= "response was not valid JSON";
+				}
+			} else if (!note) {
+				note = "empty response (the .response-shape scar, parser lines 94-102)";
+			}
+
+			// Whitespace spiral check (ADR-0005 §1): the nested-schema failure mode
+			// was runaway padding, not a wrong answer.
+			const padding = raw.length - raw.replace(/\s/g, "").length;
+			if (ok && padding > raw.length * 0.5) {
+				note ||= `whitespace-heavy: ${padding}/${raw.length} chars`;
+			}
+			// Slot discipline (ticket 15 butir 1): the app fills numbers, not the model.
+			if (ok && /\d/.test(reply)) {
+				note ||= "wrote a digit into reply instead of leaving the slot";
+			}
+			if (ok && !reply.includes("{amount}")) {
+				note ||= "dropped the {amount} slot";
+			}
+
+			probes.push({ model, ms, ok, note, reply, summary, raw });
+
+			// Non-gating on purpose: a candidate failing is data, not a broken build.
+			expect(probes.length).toBeGreaterThan(0);
+		});
+	}
+
+	it("PRINTS THE TRANSCRIPT — this failure is the report, not a bug", () => {
+		const report = probes
+			.map(
+				(p) =>
+					[
+						`--- ${p.model}`,
+						`    ${p.ms}ms  json_schema_ok=${p.ok}${p.note ? `  note=${p.note}` : ""}`,
+						`    reply:   ${p.reply || "(none)"}`,
+						`    summary: ${p.summary || "(none)"}`,
+						`    raw:     ${p.raw.slice(0, 400)}`,
+					].join("\n"),
+			)
+			.join("\n");
+		expect(report).toBe("READ THE ACTUAL VALUE ABOVE");
+	});
+});
