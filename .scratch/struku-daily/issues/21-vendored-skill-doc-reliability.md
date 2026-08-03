@@ -1,7 +1,7 @@
 # 21 — Seberapa luas dokumen skill yang divendor salah angka
 
 Type: research
-Status: open
+Status: claimed
 Blocked by: —
 
 ## Question
