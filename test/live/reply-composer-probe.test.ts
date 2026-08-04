@@ -76,17 +76,40 @@ type Probe = {
 };
 
 function normalize(output: unknown): string {
-	// Same normalization as workers-ai-text-parser.ts:92-110 — the binding hands
-	// back an already-parsed object for json_schema calls on some runtimes and a
-	// JSON string on others, and only accepting the string form once silently
-	// produced "" for every live call.
+	// Run 2 proved the binding returns TWO DIFFERENT SHAPES depending on the
+	// model, which the app's own parser does not know:
+	//
+	//   llama-3.3-70b / llama-3.1-8b -> { response: ... }
+	//   glm-4.7-flash / gemma-sea-lion -> OpenAI chat completion,
+	//                                     { choices: [{ message: { content } }] }
+	//
+	// Run 2 scored both OpenAI-shaped models as "empty", which read as "the model
+	// ignored json_schema". It was this function that was blind: gemma-sea-lion
+	// had in fact answered perfectly. Handling only `.response` is exactly the
+	// scar at workers-ai-text-parser.ts:94-102, and the app still carries it.
 	if (typeof output === "string") return output;
-	if (output && typeof output === "object" && "response" in output) {
+	if (!output || typeof output !== "object") return "";
+
+	if ("response" in output) {
 		const { response } = output as { response: unknown };
 		if (typeof response === "string") return response;
 		if (response !== null && response !== undefined) {
 			return JSON.stringify(response);
 		}
+	}
+
+	const choice = (output as { choices?: { message?: unknown }[] }).choices?.[0];
+	const message = choice?.message as
+		| { content?: unknown; reasoning?: unknown }
+		| undefined;
+	if (typeof message?.content === "string" && message.content.length > 0) {
+		return message.content;
+	}
+	// Reasoning models (glm-4.7-flash) leave `content` null and spend the token
+	// budget in `reasoning`. That is a max_tokens/answer-shape problem, NOT proof
+	// that json_schema is unsupported — keep them apart.
+	if (typeof message?.reasoning === "string" && message.reasoning.length > 0) {
+		return "";
 	}
 	return "";
 }
@@ -128,6 +151,12 @@ describe("ticket 25: reply-composition candidates (live)", () => {
 			let reply = "";
 			let summary = "";
 			let ok = false;
+			const reasoning = (
+				rawOutput as { choices?: { message?: { reasoning?: unknown } }[] }
+			)?.choices?.[0]?.message?.reasoning;
+			if (!raw && typeof reasoning === "string" && reasoning.length > 0) {
+				note = `reasoning model: content=null, ${reasoning.length} chars spent in .reasoning — raise max_tokens or drop this candidate`;
+			}
 			if (!raw && !note) {
 				// Run 1 (2026-08-03) hit this on glm-4.7-flash and gemma-sea-lion:
 				// normalize() collapsed the payload to "" and the run could not tell

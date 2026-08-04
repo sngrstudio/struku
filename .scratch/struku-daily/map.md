@@ -289,6 +289,21 @@ yang bikin dia berhenti.*
   [§ Hasil probe](issues/25-small-model-for-reply-composition.md).
   🚨 **Run yang sama menemukan jalur transaksi rusak** →
   [28 · Skema parsing ADR-0005 §3 ditolak model](issues/28-parse-schema-5024.md).
+  🔴 **Run-2 membalik dua kesimpulan run-1 — baca § Hasil probe run-2 tiket 25
+  sebelum memakai angka mana pun di atas.** (a) **SEA-LION tidak gagal** — ia
+  menjawab sempurna, memakai `{amount}` **dan** `{category}`, dengan Indonesia
+  **kasual** persis yang diminta (*"Oke, sudah dicatat pengeluaranmu … ya!"*),
+  sementara 70B dan 8B dua-duanya kaku **dan** menjatuhkan `{category}` (8B bahkan
+  menulis `Rp` sendiri). Yang salah adalah `normalize()` di probe. (b) **Binding
+  mengembalikan dua bentuk berbeda tergantung model** — `{ response }` untuk Llama,
+  **chat completion ala OpenAI** untuk GLM/SEA-LION — dan
+  [`workers-ai-text-parser.ts:92-110`](../../src/worker/parsing/workers-ai-text-parser.ts)
+  **hanya mengenal `.response`**, jadi bekas luka lama itu masih terbuka dan bukan
+  anomali sekali jalan. GLM ternyata **reasoning model** (`content: null`, anggaran
+  token habis di `.reasoning`), bukan gagal skema. (c) Klaim "baseline ADR-0005 §2
+  kedaluwarsa" **dikoreksi jadi "variansi besar"** — 70B 10.370ms lalu 3.240ms; itu
+  **lebih menyulitkan** anggaran, bukan lebih ringan. Probe sudah diperbaiki untuk
+  ketiganya; **angka SEA-LION dan GLM belum final, jalankan ulang.**
 
 - [21 · Seberapa luas dokumen skill yang divendor salah angka](issues/21-vendored-skill-doc-reliability.md)
   (research) — **47% klaim numerik tidak bisa dipertanggungjawabkan** (23 dari 49

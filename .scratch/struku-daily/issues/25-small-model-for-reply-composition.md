@@ -267,3 +267,96 @@ meminta *"casual, warm, short Indonesian"* dan tidak satu pun memberikannya.
 Jadi pertanyaan 4 tiket ini **belum selesai**: kedua model yang bekerja menghasilkan
 Bahasa Indonesia yang benar tapi **berjarak**. Itu persoalan nada — dan `map.md`
 sudah punya fog **"Nada dan persona bot"** untuk itu. Menaikkan urgensinya.
+
+## Hasil probe run-2 (2026-08-03) — **membalik dua kesimpulan run-1**
+
+| Model | Waktu | `json_schema` | Catatan |
+|---|---|---|---|
+| `llama-3.3-70b-instruct-fp8-fast` | **3.240ms** (run-1: 10.370ms) | ✅ | **`{category}` dijatuhkan** |
+| `glm-4.7-flash` | 7.428ms | ❌ | `content: null`, isi tumpah ke `reasoning` |
+| `gemma-sea-lion-v4-27b-it` | 1.409ms | ⚠️ **sebenarnya BERHASIL** | probe-nya yang buta |
+| `llama-3.1-8b-instruct-fast` | **699ms** | ✅ | `{category}` dijatuhkan **+ menulis `Rp` sendiri** |
+
+### 🔴 Koreksi 1: SEA-LION **tidak gagal** — probe run-1 yang salah baca
+
+Payload mentahnya:
+
+```
+content: "{\"reply\": \"Oke, sudah dicatat pengeluaranmu sebesar {amount} untuk {category} ya! Tot…
+```
+
+Ia **menjawab dengan benar**, memakai **`{amount}` dan `{category}` dua-duanya**, dan
+Bahasa Indonesianya **kasual persis seperti yang diminta** — *"Oke, sudah dicatat
+pengeluaranmu … ya!"*. Bandingkan 70B (*"Pengeluaran untuk kategori warteg sebesar…"*)
+dan 8B (*"Warteg **Anda** hari ini…"*), dua-duanya kaku dan formal.
+
+**Sejauh bukti yang ada, SEA-LION satu-satunya kandidat yang lolos ketiganya: bentuk
+kontrak, disiplin slot, dan nada.** Ia juga **1.409ms** — 2,3× lebih cepat dari 70B
+di run yang sama.
+
+### 🔴 Koreksi 2: binding mengembalikan **dua bentuk berbeda tergantung model**
+
+Ini temuan terbesar run-2, dan ia **jauh melampaui tiket 25**.
+
+| Model | Bentuk respons |
+|---|---|
+| `llama-3.3-70b`, `llama-3.1-8b` | `{ response: … }` |
+| `glm-4.7-flash`, `gemma-sea-lion` | **chat completion ala OpenAI** — `{ choices: [{ message: { content } }] }` |
+
+`normalize()` di probe **dan di
+[`workers-ai-text-parser.ts:92-110`](../../../src/worker/parsing/workers-ai-text-parser.ts)**
+hanya mengenal `.response`. Bentuk kedua runtuh jadi `""`, yang terbaca sebagai
+*"model mengabaikan skema"*.
+
+⚠️ **Ini bekas luka yang sama, masih terbuka, dan sekarang terbukti bukan anomali
+satu kali.** Komentar di baris 94-102 menceritakan `.response` pernah salah bentuk
+dan menjatuhkan seluruh parse ke `UNKNOWN_REPHRASE_RESULT` *padahal model menjawab
+benar* — persis yang barusan terjadi lagi, ke SEA-LION, di depan mata. **Kalau
+Cloudflare mengubah 70B ke bentuk OpenAI, jalur pencatatan Struku mati diam-diam
+tanpa satu error pun.** Masuk [28](28-parse-schema-5024.md), bukan hanya tiket ini.
+
+Probe **sudah diperbaiki** untuk mengenal kedua bentuk. **Jalankan ulang** —
+angka SEA-LION dan GLM di atas belum final.
+
+### GLM: bukan gagal skema, tapi **reasoning model**
+
+`content: null`, `tool_calls: []`, dan isinya tumpah ke field **`reasoning`**
+(*"1. **Analyze the …"*). Anggaran `max_tokens: 512` habis dipakai berpikir sebelum
+menjawab. Jadi vonis yang benar bukan *"tidak mendukung `json_schema`"* melainkan
+**"butuh `max_tokens` jauh lebih besar, dan membayar latency untuk penalaran yang
+tidak dibutuhkan panggilan-2"** — menyusun dua kalimat dari slot yang sudah terisi
+tidak perlu chain-of-thought. Probe sekarang menandainya terpisah.
+
+### 🟡 Koreksi 3: latency **tidak stabil**, bukan "baseline kedaluwarsa"
+
+70B: **10.370ms** (run-1) → **3.240ms** (run-2). Karena itu kalimat di § Hasil probe
+run-1 bahwa ADR-0005 §2 "kedaluwarsa" **terlalu keras dan dikoreksi di sini**: yang
+benar adalah **variansinya besar** — 3,2s / 10,4s / 20s+ pada model dan panggilan
+yang sama.
+
+Untuk anggaran NFR-PERF-01 ini **lebih buruk** daripada angka tinggi yang stabil:
+p95 tidak bisa direncanakan dari p50, dan dua panggilan berurutan mengalikan
+variansinya. **Kebijakan timeout + kebijakan retry harus dirancang untuk ekor,
+bukan untuk median** — masuk revisi ADR-0005.
+
+### Disiplin slot: pelanggaran **sistematis**, bukan sekali
+
+Cek slot yang diperbaiki menangkap **70B dan 8B dua-duanya menjatuhkan
+`{category}`** dan menggantinya dengan kata user (*"warteg"*). 8B lebih jauh lagi:
+menulis **`Rp {amount}`** — menyisipkan simbol mata uang sendiri, padahal mata uang
+milik app (ADR-0005 §4 menaruh konversi unit di app justru supaya model tidak
+menyentuh urusan mata uang).
+
+**Hanya SEA-LION yang memakai `{category}` dengan benar.**
+
+Fog **"bentuk kontrak slot angka"** di `map.md` sekarang punya tiga kasus konkret
+dan namanya terbukti salah: bukan hanya slot *angka*. Ia butuh daftar slot yang sah
+**plus verifikasi sebelum kirim** — model yang menjatuhkan slot menghasilkan kalimat
+yang terlihat wajar tapi kehilangan nilai yang app sudah hitung.
+
+### Catatan: run-2 **tidak** mereproduksi `5024`
+
+`text-parser-contract.test.ts` run-2 gagal dengan **`Network connection lost`** —
+sesi remote proxy putus, bukan penolakan skema. Jadi run-2 **inkonklusif** untuk
+[28](28-parse-schema-5024.md), bukan bukti tandingan. Klaim "bukan transien" di
+tiket 28 tetap berdiri di atas run sebelumnya, dan **butuh satu run bersih lagi**.

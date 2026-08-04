@@ -101,3 +101,56 @@ ia tidak sehat**, dan pertanyaannya bukan lagi hipotetis.
   [15](15-conversational-surface.md).
 - Bukti mentah kedua run ada di transkrip sesi 2026-08-03; ringkasannya di
   [25 § Hasil probe](25-small-model-for-reply-composition.md).
+
+## Tambahan run-3 (2026-08-03): satu bahaya baru, satu klaim melemah
+
+### 🚨 Bahaya baru: binding punya **dua bentuk respons**, parser hanya tahu satu
+
+Probe [25](25-small-model-for-reply-composition.md) run-2 membuktikan `env.AI.run`
+mengembalikan bentuk berbeda **tergantung model**:
+
+| Model | Bentuk |
+|---|---|
+| `llama-3.3-70b`, `llama-3.1-8b` | `{ response: … }` |
+| `glm-4.7-flash`, `gemma-sea-lion` | chat completion ala OpenAI — `{ choices: [{ message: { content } }] }` |
+
+[`workers-ai-text-parser.ts:92-110`](../../../src/worker/parsing/workers-ai-text-parser.ts)
+**hanya mengenal `.response`.** Bentuk kedua runtuh jadi `""` → `tryParseResult`
+gagal → retry → gagal lagi → `UNKNOWN_REPHRASE_RESULT`. **Tanpa satu error pun.**
+
+Ini **bukan hipotesis**: probe run-2 melakukannya persis itu ke
+`gemma-sea-lion`, yang sebenarnya menjawab dengan sempurna, dan menskornya sebagai
+gagal. Komentar di baris 94-102 menceritakan kejadian yang sama pernah menimpa
+produksi. **Jadi bentuk `.response` untuk 70B adalah asumsi tak tertulis yang
+menopang seluruh jalur pencatatan, dan tidak ada satu pun test yang menjaganya** —
+suite lokal menyuntik `TextParser` palsu di atas `env.AI`, jadi ia tidak pernah
+menyentuh bentuk ini.
+
+**Kalau Cloudflare memindahkan 70B ke bentuk OpenAI, Struku berhenti mencatat
+diam-diam.** Ini pertanyaan kelima untuk tiket ini: **apakah normalisasi respons
+dikeraskan sekarang, terpisah dari perdebatan skema?** Ia murah, tidak menyentuh
+ADR-0005 §3, dan menutup mode gagal senyap yang sudah terbukti dua kali.
+
+### 🟡 Klaim "bukan transien" melemah — butuh satu run bersih
+
+Run-3 **tidak** mereproduksi `5024`. Ia gagal dengan **`Network connection lost`**
+(sesi remote proxy putus, tujuh `uncaught exception` dari
+`remote-proxy-client.worker.js`, enam test gagal dalam <10ms setelah yang pertama
+mati di 12,9s). Jadi run-3 **inkonklusif**, bukan bukti tandingan.
+
+Status bukti `5024` sekarang: **dua run reproduksi (run-1 dan run-2), satu run
+inkonklusif.** Masih cukup untuk membuka tiket ini, **belum** cukup untuk mengunci
+diagnosis skema sebelum satu run bersih lagi. **Jalankan `npm run test:live` sekali
+lagi sebelum menggrilling.**
+
+### 🟡 Klaim "latency 4–6× lebih lambat" dikoreksi
+
+Tulisan di § "Kenapa ini mendesak" butir 2 bahwa bukti ADR-0005 §2 "kedaluwarsa"
+**terlalu keras.** 70B diukur **10.370ms** (run-1) lalu **3.240ms** (run-2) pada
+panggilan yang sama. Yang benar: **variansinya besar dan tidak bisa direncanakan**,
+bukan "baseline bergeser ke atas".
+
+Untuk NFR-PERF-01 ini justru **lebih menyulitkan** — p95 tidak bisa diturunkan dari
+p50, dan dua panggilan berurutan mengalikan variansi. Konsekuensinya untuk tiket
+ini tidak berubah: kebijakan timeout dan retry harus dirancang untuk **ekor**, bukan
+median.
