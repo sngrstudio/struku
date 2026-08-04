@@ -304,6 +304,19 @@ yang bikin dia berhenti.*
   kedaluwarsa" **dikoreksi jadi "variansi besar"** — 70B 10.370ms lalu 3.240ms; itu
   **lebih menyulitkan** anggaran, bukan lebih ringan. Probe sudah diperbaiki untuk
   ketiganya; **angka SEA-LION dan GLM belum final, jalankan ulang.**
+  ✅ **Run-3 final (2026-08-03): pemenangnya `@cf/aisingapore/gemma-sea-lion-v4-27b-it`.**
+  **1.390ms** (2,4× lebih cepat dari 70B), `json_schema` ✅, **satu-satunya dengan
+  nol catatan pelanggaran** — ketiga slot utuh **dan** nada kasual persis persona
+  Gita (*"Oke, sudah dicatat pengeluaranmu sebesar {amount} untuk {category} ya!"*),
+  konsisten di dua run. 70B dan 8B dua-duanya **menjatuhkan `{category}`** dan
+  menggantinya dengan kata user; 8B bahkan menjatuhkan `{total_harian}` juga dan
+  pernah menulis `Rp` sendiri (padahal mata uang urusan app, ADR-0005 §4). GLM
+  **dicoret** — reasoning model, `content: null`, 1.769 char habis di `.reasoning`,
+  dan **10.880ms**, paling lambat. **15 butir 2 selamat dan terbukti.** Sinyal
+  [DOC] yang paling prediktif ternyata yang paling sederhana: dokumentasi menyebut
+  Indonesian **dengan nama**. ⚠️ Pelanggaran slot 70B/8B bukan sekadar cacat
+  kandidat kalah — ia bukti **slot butuh verifikasi sebelum kirim**, bukan sekadar
+  instruksi prompt, karena kalimat yang kehilangan slot **tetap terlihat wajar**.
 
 - [21 · Seberapa luas dokumen skill yang divendor salah angka](issues/21-vendored-skill-doc-reliability.md)
   (research) — **47% klaim numerik tidak bisa dipertanggungjawabkan** (23 dari 49
@@ -474,6 +487,15 @@ yang bikin dia berhenti.*
   pertahanan** terhadap halusinasi angka di bot keuangan, jadi ia butuh bentuk
   yang keras — tapi bentuknya baru terlihat setelah diketahui model mana yang
   dipakai dan seberapa nurut ia pada instruksi slot.
+  ✅ **Syaratnya sekarang terpenuhi** — probe [25](issues/25-small-model-for-reply-composition.md)
+  memberi **tiga kasus konkret**: 70B menulis kata user (*"warteg"*) di tempat
+  `{category}`; 8B menjatuhkan `{category}` **dan** `{total_harian}` sekaligus, dan
+  di run lain menyisipkan `Rp` sendiri. Dua pelajarannya mempertajam bentuk tiket
+  yang akan lahir: (a) namanya **terlalu sempit** — yang bocor bukan cuma slot
+  *angka*, tapi juga kategori dan simbol mata uang; (b) kalimat yang kehilangan slot
+  **tetap terbaca wajar**, jadi instruksi prompt saja tidak cukup — butuh
+  **verifikasi sebelum kirim**. Siap digraduasikan jadi tiket; belum dilakukan agar
+  tidak mendahului revisi ADR-0005 yang akan menampung kosakatanya.
   ⚠️ **Masih di fog, dan syarat graduasinya bergeser.** Rencana semula "graduasikan
   setelah [25](issues/25-small-model-for-reply-composition.md)" **tidak terpenuhi**:
   25 resolved tanpa memilih model. Syaratnya sekarang **hasil probe**, bukan

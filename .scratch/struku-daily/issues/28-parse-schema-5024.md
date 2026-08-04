@@ -154,3 +154,55 @@ Untuk NFR-PERF-01 ini justru **lebih menyulitkan** — p95 tidak bisa diturunkan
 p50, dan dua panggilan berurutan mengalikan variansi. Konsekuensinya untuk tiket
 ini tidak berubah: kebijakan timeout dan retry harus dirancang untuk **ekor**, bukan
 median.
+
+## Run-4 (2026-08-03): `5024` **direproduksi bersih** — status bukti final
+
+Run bersih (tidak ada `Network connection lost`): **4× `5024` + 3× timeout 20s**,
+7/7 gagal.
+
+**Status bukti sekarang: tiga run konklusif mereproduksi, satu inkonklusif.**
+Koreksi "klaim melemah" di bagian run-3 di atas **dibatalkan** — klaim "bukan
+transien" berdiri lebih kuat dari semula.
+
+Kontrolnya juga makin kuat: di run yang sama, probe [25](25-small-model-for-reply-composition.md)
+memanggil **model yang sama** lewat **mekanisme yang sama** dan **lolos** (70B,
+3.396ms). Empat run berturut-turut menunjukkan pola yang sama: skema dua-string
+lolos, `PARSE_RESULT_JSON_SCHEMA` ditolak.
+
+### Yang **belum** diketahui, dan kenapa itu penting
+
+*"Skemanya yang ditolak"* sudah kuat. **Konstruk mana** yang ditolak — belum.
+Kedua skema berbeda di **empat hal sekaligus**:
+
+| | Probe (lolos) | `PARSE_RESULT_JSON_SCHEMA` (ditolak) |
+|---|---|---|
+| Jumlah field | 2 | 7 |
+| Tipe | `string` polos | union `type: ["string","null"]` (5 field) |
+| `enum` | tidak ada | ada di 2 field |
+| `null` di dalam `enum` | tidak ada | ada di 2 field |
+
+Sudah bisa **dicoret**: `additionalProperties: false` yang tidak ada — skema probe
+juga tidak punya, dan ia lolos.
+
+Menambal tanpa mengisolasi berarti menebak: kalau `enum` disederhanakan lalu
+kebetulan jalan, aturannya tetap tidak diketahui dan skema berikutnya akan kena
+lagi.
+
+→ **Probe isolasi ditulis:
+[`test/live/schema-isolation-probe.test.ts`](../../../test/live/schema-isolation-probe.test.ts)**.
+Delapan langkah, masing-masing menambahkan **satu** konstruk di atas bentuk yang
+diketahui baik, dijepit dua kontrol (S1 = bentuk probe 25, S8 = skema asli).
+Langkah pertama yang `REJECTED` menyebut tersangkanya. Prompt, model, dan
+`max_tokens` sengaja dibuat identik sehingga skema satu-satunya variabel.
+**Jalankan `npm run test:live`, lalu catat hasilnya di sini.**
+
+### Gejala kedua yang belum punya penjelasan
+
+**3 dari 7 gagal karena timeout 20s, bukan `5024`** (run-1: 5:2, run-4: 4:3).
+Ini **bukan** jalur retry ADR-0005 §7 — `5024` dilempar, jadi `tryParseResult`
+tidak pernah dipanggil dan retry tidak berjalan. Artinya ada panggilan yang
+**menggantung >20 detik**, bukan ditolak.
+
+Belum ada penjelasan, dan **sengaja tidak ditebak**. Probe isolasi memakai timeout
+45s justru supaya panggilan yang menggantung terlihat sebagai `HUNG/OTHER` dengan
+durasinya, bukan tertutup dinding 20s.

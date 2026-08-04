@@ -360,3 +360,59 @@ yang terlihat wajar tapi kehilangan nilai yang app sudah hitung.
 sesi remote proxy putus, bukan penolakan skema. Jadi run-2 **inkonklusif** untuk
 [28](28-parse-schema-5024.md), bukan bukti tandingan. Klaim "bukan transien" di
 tiket 28 tetap berdiri di atas run sebelumnya, dan **butuh satu run bersih lagi**.
+
+## Hasil probe run-3 (2026-08-03) — **final untuk pertanyaan model**
+
+Probe sudah mengenal kedua bentuk respons, jadi angka di bawah **bersih**.
+
+| Model | Waktu | `json_schema` | Disiplin slot | Nada |
+|---|---|---|---|---|
+| **`gemma-sea-lion-v4-27b-it`** | **1.390ms** | ✅ | ✅ **ketiganya utuh** | ✅ **kasual** |
+| `llama-3.3-70b-instruct-fp8-fast` | 3.396ms | ✅ | ❌ jatuhkan `{category}` | kaku |
+| `llama-3.1-8b-instruct-fast` | **534ms** | ✅ | ❌ jatuhkan `{category}` **dan** `{total_harian}` | *"Anda telah…"* |
+| `glm-4.7-flash` | 10.880ms | ❌ | — | reasoning model: `content: null`, **1.769 char** habis di `.reasoning` |
+
+### Rekomendasi: `@cf/aisingapore/gemma-sea-lion-v4-27b-it`
+
+> *"Oke, sudah dicatat pengeluaranmu sebesar `{amount}` untuk `{category}` ya!
+> Total pengeluaran hari ini sudah `{total_harian}` nih."*
+
+**Satu-satunya kandidat dengan nol catatan pelanggaran**, dan konsisten di dua run
+berturut-turut. Ia menang di **tiga sumbu sekaligus**, bukan satu:
+
+1. **Bentuk kontrak** — `{ reply, summary }` flat, tanpa spiral. 15 butir 5 aman.
+2. **Disiplin slot** — satu-satunya yang memakai ketiga slot. 70B dan 8B
+   dua-duanya menyisipkan kata user (*"warteg"*) di tempat `{category}`, dan 8B
+   pernah menulis `Rp` sendiri padahal mata uang urusan app (ADR-0005 §4).
+3. **Nada** — kasual, persis persona Gita. 8B memakai *"Anda"*; 70B menulis prosa
+   laporan. Prompt meminta *"casual, warm, short Indonesian"* dan hanya SEA-LION
+   memberikannya.
+
+Plus **1.390ms — 2,4× lebih cepat dari 70B** di run yang sama, jadi 15 butir 2
+(model lebih kecil untuk panggilan-2) **selamat dan terbukti**.
+
+Yang menarik: ini kandidat yang riset [DOC] **sudah tunjuk lebih dulu**, lewat
+satu-satunya sinyal keras yang ia punya — dokumentasi Cloudflare menyebut
+Indonesian **dengan nama**, sementara kandidat lain hanya mengklaim jumlah bahasa.
+Sinyal itu ternyata jauh lebih prediktif daripada positioning "dialog cepat".
+
+### GLM dicoret, dengan alasan yang tepat
+
+Bukan *"tidak mendukung `json_schema`"* — ia **reasoning model**. `content: null`,
+seluruh anggaran token habis di `.reasoning` (1.769 karakter) sebelum sempat
+menjawab. Menaikkan `max_tokens` mungkin memperbaikinya, tapi **itu membayar
+latency untuk penalaran yang panggilan-2 tidak butuhkan** — menyusun dua kalimat
+dari slot yang sudah terisi bukan tugas chain-of-thought. Ia juga **10.880ms**,
+paling lambat dari semuanya. Dicoret.
+
+### Yang masih terbuka setelah ini
+
+- **Pelanggaran slot 70B/8B bukan sekadar bug kandidat kalah** — ia menunjukkan
+  slot **butuh verifikasi sebelum kirim**, bukan hanya instruksi prompt. Model
+  yang menjatuhkan slot menghasilkan kalimat yang **terlihat wajar** tapi kehilangan
+  nilai yang app sudah hitung. Fog "kontrak slot angka" di `map.md` sekarang punya
+  tiga kasus konkret, dan namanya terbukti terlalu sempit: bukan hanya slot angka.
+- **`max_tokens` untuk SEA-LION belum diuji di batasnya** — jawaban di sini pendek;
+  ringkasan percakapan yang menumpuk sepanjang hari (15 butir 5–6) lebih panjang.
+- **Satu prompt, satu giliran.** Probe menguji balasan commit — jalur paling ramai,
+  tapi bukan satu-satunya. Sapaan, klarifikasi, dan kegagalan belum diuji.
