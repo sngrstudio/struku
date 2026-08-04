@@ -99,6 +99,15 @@ yang bikin dia berhenti.*
     [23B](issues/23-draft-confirmation-surface.md) (balasan tiga baris +
     `Pengeluaran hari ini`). Keduanya sudah dibangun & hijau lokal, **belum
     pernah terbukti di produksi**.
+  - 🚨 **Kondisi produksi berubah 2026-08-03 dan freeze perlu ditimbang ulang.**
+    `test:live` menemukan jalur pencatatan transaksi **gagal 7/7** dengan
+    `AiError: 5024: JSON Model couldn't be met` — dua run terpisah, bukan transien
+    → [28](issues/28-parse-schema-5024.md). `ai.run` **melempar**, dan tidak ada
+    satu pun `try`/`catch` di `coordinator.ts`, jadi errornya menembus seluruh
+    jalur pesan. Kalau produksi memang rusak, menahan perbaikan sampai map selesai
+    berarti bot **tidak bisa dipakai sama sekali** sampai saat itu — padahal
+    destination map ini justru *"dipakai harian"*. **Keputusan pemilik repo, bukan
+    agent** — tercatat di butir 3 tiket 28, jangan diputuskan sepihak.
   - **Kondisi produksi selama freeze:** versi terpasang `7436f2b5`, dan bot
     **masih menjebak di mode edit** ([24](issues/24-edit-mode-escape.md)).
     Tambalan cepat ditawarkan dan **ditolak** — konsisten dengan freeze.
@@ -255,9 +264,31 @@ yang bikin dia berhenti.*
   **18 model dideprekasi 30 Mei 2026** dengan daftar yang gagal diekstrak — wajib
   diverifikasi sebelum mengunci kandidat. Probe **sudah terisi** di
   [`test/live/reply-composer-probe.test.ts`](../../test/live/reply-composer-probe.test.ts),
-  typecheck bersih, 77/77 tetap hijau — **belum dijalankan**, menunggu pemilik repo
-  (`npm run test:live`). Kanal terdegradasi seperti [21](issues/21-vendored-skill-doc-reliability.md).
-  → [temuan lengkap](research/25-small-model-for-reply-composition.md).
+  typecheck bersih, 77/77 tetap hijau. Kanal terdegradasi seperti
+  [21](issues/21-vendored-skill-doc-reliability.md).
+  ✅ **PROBE SUDAH DIJALANKAN pemilik repo (2026-08-03)** — tiket ini sekarang
+  `[DOC]` **+** `[PROBE]`, dan hasilnya **membalik sebagian peringkat [DOC]**:
+  kontrak dua field flat `{ reply, summary }` **terbukti utuh tanpa spiral** (satu
+  hal dari keputusan 15 yang bisa dibuktikan selama freeze — **lolos**); premis
+  "lebih kecil = lebih cepat" **terbukti telak** (8B **725ms** vs 70B **10.370ms**,
+  14×), jadi 15 butir 2 selamat; tapi **dua kandidat teratas riset dokumentasi
+  (GLM dan SEA-LION) dua-duanya mengembalikan kosong**, dan yang menang justru
+  kandidat **kontrol** yang dimasukkan karena *tidak* diharapkan menang. ⚠️ Jangan
+  dulu mencoret keduanya — probe run-1 punya titik buta (`normalize()` meruntuhkan
+  payload jadi `""`, tak bisa membedakan "model abaikan skema" dari "bentuk tak
+  dikenal"); probe **sudah diperbaiki**, **jalankan ulang**. ⚠️ **Baseline
+  ADR-0005 §2 kedaluwarsa:** 70B kini **10,4s per panggilan** lawan p95 ~2,4s yang
+  tercatat — seluruh aritmetika anggaran NFR-PERF-01 di 15 butir 2 dan tiket ini
+  berdiri di atas angka yang tidak berlaku lagi. **Pelanggaran slot pertama
+  tertangkap:** 70B menulis kata user (*"warteg"*) di tempat `{category}`, jadi app
+  tak punya apa pun untuk disubstitusi — fog "kontrak slot angka" kini punya kasus
+  konkret dan ternyata **lebih luas dari sekadar slot angka**. Kualitas bahasa:
+  kedua model yang bekerja menghasilkan Indonesia **kaku** (8B memakai *"Anda"*),
+  padahal prompt meminta kasual → menaikkan urgensi fog **"Nada dan persona bot"**.
+  → [temuan lengkap](research/25-small-model-for-reply-composition.md) +
+  [§ Hasil probe](issues/25-small-model-for-reply-composition.md).
+  🚨 **Run yang sama menemukan jalur transaksi rusak** →
+  [28 · Skema parsing ADR-0005 §3 ditolak model](issues/28-parse-schema-5024.md).
 
 - [21 · Seberapa luas dokumen skill yang divendor salah angka](issues/21-vendored-skill-doc-reliability.md)
   (research) — **47% klaim numerik tidak bisa dipertanggungjawabkan** (23 dari 49

@@ -99,6 +99,7 @@ describe("ticket 25: reply-composition candidates (live)", () => {
 			const started = Date.now();
 			let raw = "";
 			let note = "";
+			let rawOutput: unknown;
 			try {
 				const output = await env.AI.run(
 					model as Parameters<Ai["run"]>[0],
@@ -114,6 +115,7 @@ describe("ticket 25: reply-composition candidates (live)", () => {
 						max_tokens: 512, // ADR-0005 §2: the 256 default truncates on 70B.
 					} as Parameters<Ai["run"]>[1],
 				);
+				rawOutput = output;
 				raw = normalize(output);
 			} catch (error) {
 				// A model that rejects json_schema outright fails HERE, and that is
@@ -126,6 +128,15 @@ describe("ticket 25: reply-composition candidates (live)", () => {
 			let reply = "";
 			let summary = "";
 			let ok = false;
+			if (!raw && !note) {
+				// Run 1 (2026-08-03) hit this on glm-4.7-flash and gemma-sea-lion:
+				// normalize() collapsed the payload to "" and the run could not tell
+				// "model ignored json_schema" apart from "binding returned a shape
+				// normalize() does not know" — the same ambiguity as the scar at
+				// workers-ai-text-parser.ts:94-102. Keep the untouched payload so the
+				// next run can tell them apart.
+				note = `empty after normalize; raw payload = ${JSON.stringify(rawOutput)?.slice(0, 300)}`;
+			}
 			if (raw) {
 				try {
 					const parsed = JSON.parse(raw) as Record<string, unknown>;
@@ -146,12 +157,20 @@ describe("ticket 25: reply-composition candidates (live)", () => {
 			if (ok && padding > raw.length * 0.5) {
 				note ||= `whitespace-heavy: ${padding}/${raw.length} chars`;
 			}
-			// Slot discipline (ticket 15 butir 1): the app fills numbers, not the model.
-			if (ok && /\d/.test(reply)) {
-				note ||= "wrote a digit into reply instead of leaving the slot";
-			}
-			if (ok && !reply.includes("{amount}")) {
-				note ||= "dropped the {amount} slot";
+			// Slot discipline (ticket 15 butir 1): the app fills the values, not the
+			// model. Run 1 checked only digits and {amount}, and MISSED the real
+			// violation: 70B wrote the user's own word ("warteg") where {category}
+			// belonged, so the app had nothing to substitute. Every slot is checked
+			// now, and a slot silently replaced by prose is the failure to catch.
+			const SLOTS = ["{amount}", "{category}", "{total_harian}"];
+			if (ok) {
+				if (/\d/.test(reply)) {
+					note ||= "wrote a digit into reply instead of leaving the slot";
+				}
+				const dropped = SLOTS.filter((slot) => !reply.includes(slot));
+				if (dropped.length > 0) {
+					note ||= `dropped slot(s) from reply: ${dropped.join(", ")}`;
+				}
 			}
 
 			probes.push({ model, ms, ok, note, reply, summary, raw });

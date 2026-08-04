@@ -191,3 +191,79 @@ typecheck bersih, dan `npm test` tetap 77/77 (probe di luar gerbang). **Belum
 dijalankan** — tidak ada kredensial Cloudflare di environment agent
 (`wrangler whoami` = not authenticated). Satu perintah dari pemilik repo:
 `npm run test:live`.
+
+## Hasil probe (2026-08-03, dijalankan pemilik repo)
+
+`npm run test:live` di mesin pemilik repo. **Ini mengubah tiket ini dari `[DOC]`
+saja menjadi `[DOC]` + `[PROBE]`** — verifikasi yang § "Cara memverifikasi" minta
+sudah dibayar.
+
+| Model | Waktu | `json_schema` | Catatan |
+|---|---|---|---|
+| `@cf/meta/llama-3.3-70b-instruct-fp8-fast` | **10.370ms** | ✅ | slot `{amount}` + `{total_harian}` utuh, **tapi `{category}` diganti kata user** |
+| `@cf/zai-org/glm-4.7-flash` | 8.192ms | ❌ | respons kosong setelah normalisasi |
+| `@cf/aisingapore/gemma-sea-lion-v4-27b-it` | 1.635ms | ❌ | respons kosong setelah normalisasi |
+| `@cf/meta/llama-3.1-8b-instruct-fast` | **725ms** | ✅ | **ketiga slot utuh** |
+
+### 1. Kontrak dua field flat **terbukti** — 15 butir 5 aman
+
+`{ reply, summary }` kembali utuh pada 70B **dan** 8B, **tanpa spiral whitespace**.
+Ini satu-satunya bagian keputusan 15 yang bisa dibuktikan selama freeze, dan ia
+**lolos**. Dugaan "yang bikin spiral di spike ADR-0005 §1 adalah objek bersarang,
+bukan dua string sejajar" **terkonfirmasi empiris**.
+
+### 2. Premis "lebih kecil = lebih cepat" **terbukti, dan selisihnya ekstrem**
+
+**8B: 725ms. 70B: 10.370ms. 14×.** Riset [DOC] menyebut premis ini tak
+terdokumentasi dan mungkin salah; probe membantahnya telak untuk pasangan ini.
+15 butir 2 **selamat** — alasan memilih model kecil ternyata berdiri.
+
+⚠️ **Tapi baseline-nya sendiri bergeser:** 70B **10,4s untuk satu panggilan**,
+padahal ADR-0005 §2 mencatat p50 ~1,7s / p95 ~2,4s. **4–6× lebih lambat.** Seluruh
+aritmetika anggaran NFR-PERF-01 di tiket ini dan di 15 butir 2 dihitung di atas
+angka 2,4s yang **sudah tidak berlaku**. Dengan 70B untuk dua panggilan hari ini,
+satu pesan ≈ **20s** — lewat anggaran 10s **tanpa retry sama sekali**.
+
+Konsekuensi langsung: **"70B untuk kedua panggilan" (jawaban sah keempat) sekarang
+jauh lebih mahal daripada saat riset [DOC] menuliskannya.**
+
+### 3. Dua kandidat teratas riset [DOC] **dua-duanya gagal**
+
+GLM dan SEA-LION mengembalikan **kosong**. Peringkat riset dokumentasi — yang
+menempatkan keduanya di atas 8B — **dibalik oleh probe**. Kandidat "kontrol", yang
+dimasukkan justru karena **tidak** diharapkan menang, adalah satu-satunya model
+kecil yang bekerja.
+
+⚠️ **Jangan buru-buru menyimpulkan keduanya tidak mendukung `json_schema`.**
+Probe run-1 punya titik buta: `normalize()` meruntuhkan payload jadi `""`, jadi
+**"model mengabaikan skema" tidak bisa dibedakan dari "binding mengembalikan bentuk
+yang `normalize()` tidak kenal"** — ambiguitas yang persis sama dengan bekas luka
+[`workers-ai-text-parser.ts:94-102`](../../../src/worker/parsing/workers-ai-text-parser.ts).
+Probe **sudah diperbaiki** untuk menyimpan payload mentah; **jalankan ulang sebelum
+mencoret keduanya**. Kalau ternyata bentuknya cuma beda, SEA-LION (1.635ms, dan
+satu-satunya yang dokumentasinya menyebut Indonesian) kembali jadi kandidat kuat.
+
+### 4. Pelanggaran slot yang probe run-1 **tidak tangkap**
+
+70B menulis: *"Pengeluaran untuk kategori **warteg** sebesar `{amount}` …"* — ia
+memakai kata **user sendiri** di tempat `{category}` seharusnya berdiri, sehingga
+app **tidak punya apa pun untuk disubstitusi** dan nilai kategori yang sudah
+diselesaikan app tidak pernah sampai ke layar.
+
+Ini **bukan** halusinasi angka, jadi cek run-1 (`/\d/` + `{amount}`) meloloskannya.
+Ini kelas kegagalan yang berbeda: **teks mentah user bocor ke slot yang seharusnya
+diisi nilai terselesaikan**. Fog **"bentuk kontrak slot angka"** di `map.md` sekarang
+punya kasus konkret — dan ia lebih luas dari namanya: bukan cuma slot *angka*.
+8B memakai **ketiga** slot dengan benar. Probe sudah diperbaiki untuk memeriksa
+semua slot.
+
+### 5. Kualitas Bahasa Indonesia: dua-duanya **kaku**, bukan kasual
+
+70B: *"Pengeluaran untuk kategori warteg sebesar … sudah tercatat"*.
+8B: *"**Anda** telah merekam pengeluaran sebesar …"* — `Anda` itu formal, dan
+bertabrakan langsung dengan persona Gita (Jaksel kasual). Prompt probe **sudah**
+meminta *"casual, warm, short Indonesian"* dan tidak satu pun memberikannya.
+
+Jadi pertanyaan 4 tiket ini **belum selesai**: kedua model yang bekerja menghasilkan
+Bahasa Indonesia yang benar tapi **berjarak**. Itu persoalan nada — dan `map.md`
+sudah punya fog **"Nada dan persona bot"** untuk itu. Menaikkan urgensinya.
