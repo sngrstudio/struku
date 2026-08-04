@@ -46,6 +46,12 @@ yang bikin dia berhenti.*
   retry **9,6s** lawan anggaran 10s, dan `json_schema` sebagai **syarat seleksi
   kandidat** — bukan properti yang diasumsikan — sehingga kontrak defensif §7 berlaku
   untuk **kedua** panggilan.
+  ⚠️ **Hal ketiga yang masuk revisi ADR, dari [28](issues/28-transaction-gate-arity.md)
+  (2026-08-04):** ADR-0005 §6 menulis *clarify, never invent*, tapi ada jalur yang
+  **tidak mengklarifikasi dan tidak mencatat** — kasus yang ADR-nya tidak pernah
+  bayangkan. Revisi §1 mengganti gerbang deterministik dengan panggilan-1, jadi ia
+  **wajib menyatakan** apa yang terjadi saat maksudnya transaksi tapi satu field
+  esensial gagal ditebak. Kalau tidak, celahnya ikut pindah ke arsitektur baru.
 - **Skills tiap sesi:** `/grilling` + `/domain-modeling` (default), `/prototype`
   (spike), `/research` (fakta eksternal). Catat keputusan sebagai ADR di
   `docs/adr/`, tambah istilah ke [`CONTEXT.md`](../../CONTEXT.md).
@@ -382,6 +388,26 @@ yang bikin dia berhenti.*
   harian; kalau polanya muncul, ini bisa jadi ticket parsing tersendiri —
   terpisah dari "tidak bisa dibenerin", yang sudah ditangani
   [17 · Koreksi transaksi setelah commit](issues/17-post-commit-correction.md).
+- **Depth dan seam di jalur masuk pesan.** Disurvei 2026-08-04 di jalur AFK
+  (`/improve-codebase-architecture`) →
+  [temuan lengkap](research/architecture-survey-2026-08-04.md). Enam kandidat
+  deepening; **kandidat 01 digraduasikan** jadi
+  [28 · Gerbang transaksi ditulis dua kali dengan syarat berbeda](issues/28-transaction-gate-arity.md)
+  — satu-satunya yang lubangnya **dibuktikan jalan** (parse `category:null` dengan
+  amount lengkap membalas seperti konfirmasi sementara nol baris masuk ledger).
+  **Lima sisanya tetap fog dan sengaja tidak di-ticket:** seam `env.AI` yang
+  dipasang lewat poke field publik (paling terikat waktu — panggilan-2
+  [15](issues/15-conversational-surface.md) adalah adapter kedua yang membuat seam
+  itu nyata), urutan keputusan draft yang tak punya permukaan test (akar
+  [24](issues/24-edit-mode-escape.md); `draft/` = 477 baris nol test langsung),
+  slug chart of accounts yang punya dua deklarasi tanpa tautan tipe, dua idiom
+  *conversation context* berdampingan, dan dua aturan yang masing-masing punya dua
+  pemilik. ⚠️ **Jangan dianggap in-scope diam-diam:** kelimanya soal *cara
+  membangun*, bukan *apakah Struku bisa dipakai harian* — pertanyaan yang sama yang
+  [27](issues/27-vendored-skill-doc-mitigation.md) butir 0 tanyakan tentang dirinya
+  sendiri, dan survei ini **tidak berhak** menjawabnya sendirian. Bukti kelimanya
+  **pembacaan kode**, kelas lebih lemah daripada kandidat 01 yang dibuktikan jalan.
+
 - ~~**Keandalan dokumen skill yang divendor.**~~ → diukur di
   [21](issues/21-vendored-skill-doc-reliability.md) (**resolved** 2026-08-03,
   lihat Decisions so far), mitigasinya digraduasikan jadi
