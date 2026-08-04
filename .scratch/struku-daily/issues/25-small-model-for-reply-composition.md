@@ -313,7 +313,7 @@ satu kali.** Komentar di baris 94-102 menceritakan `.response` pernah salah bent
 dan menjatuhkan seluruh parse ke `UNKNOWN_REPHRASE_RESULT` *padahal model menjawab
 benar* — persis yang barusan terjadi lagi, ke SEA-LION, di depan mata. **Kalau
 Cloudflare mengubah 70B ke bentuk OpenAI, jalur pencatatan Struku mati diam-diam
-tanpa satu error pun.** Masuk [28](28-parse-schema-5024.md), bukan hanya tiket ini.
+tanpa satu error pun.** Masuk [29](29-parse-schema-5024.md), bukan hanya tiket ini.
 
 Probe **sudah diperbaiki** untuk mengenal kedua bentuk. **Jalankan ulang** —
 angka SEA-LION dan GLM di atas belum final.
@@ -358,8 +358,8 @@ yang terlihat wajar tapi kehilangan nilai yang app sudah hitung.
 
 `text-parser-contract.test.ts` run-2 gagal dengan **`Network connection lost`** —
 sesi remote proxy putus, bukan penolakan skema. Jadi run-2 **inkonklusif** untuk
-[28](28-parse-schema-5024.md), bukan bukti tandingan. Klaim "bukan transien" di
-tiket 28 tetap berdiri di atas run sebelumnya, dan **butuh satu run bersih lagi**.
+[29](29-parse-schema-5024.md), bukan bukti tandingan. Klaim "bukan transien" di
+tiket 29 tetap berdiri di atas run sebelumnya, dan **butuh satu run bersih lagi**.
 
 ## Hasil probe run-3 (2026-08-03) — **final untuk pertanyaan model**
 

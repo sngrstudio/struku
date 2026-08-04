@@ -102,12 +102,12 @@ yang bikin dia berhenti.*
   - 🚨 **Kondisi produksi berubah 2026-08-03 dan freeze perlu ditimbang ulang.**
     `test:live` menemukan jalur pencatatan transaksi **gagal 7/7** dengan
     `AiError: 5024: JSON Model couldn't be met` — dua run terpisah, bukan transien
-    → [28](issues/28-parse-schema-5024.md). `ai.run` **melempar**, dan tidak ada
+    → [29](issues/29-parse-schema-5024.md). `ai.run` **melempar**, dan tidak ada
     satu pun `try`/`catch` di `coordinator.ts`, jadi errornya menembus seluruh
     jalur pesan. Kalau produksi memang rusak, menahan perbaikan sampai map selesai
     berarti bot **tidak bisa dipakai sama sekali** sampai saat itu — padahal
     destination map ini justru *"dipakai harian"*. **Keputusan pemilik repo, bukan
-    agent** — tercatat di butir 3 tiket 28, jangan diputuskan sepihak.
+    agent** — tercatat di butir 3 tiket 29, jangan diputuskan sepihak.
   - **Kondisi produksi selama freeze:** versi terpasang `7436f2b5`, dan bot
     **masih menjebak di mode edit** ([24](issues/24-edit-mode-escape.md)).
     Tambalan cepat ditawarkan dan **ditolak** — konsisten dengan freeze.
@@ -288,7 +288,7 @@ yang bikin dia berhenti.*
   → [temuan lengkap](research/25-small-model-for-reply-composition.md) +
   [§ Hasil probe](issues/25-small-model-for-reply-composition.md).
   🚨 **Run yang sama menemukan jalur transaksi rusak** →
-  [28 · Skema parsing ADR-0005 §3 ditolak model](issues/28-parse-schema-5024.md).
+  [29 · Skema parsing ADR-0005 §3 ditolak model](issues/29-parse-schema-5024.md).
   🔴 **Run-2 membalik dua kesimpulan run-1 — baca § Hasil probe run-2 tiket 25
   sebelum memakai angka mana pun di atas.** (a) **SEA-LION tidak gagal** — ia
   menjawab sempurna, memakai `{amount}` **dan** `{category}`, dengan Indonesia

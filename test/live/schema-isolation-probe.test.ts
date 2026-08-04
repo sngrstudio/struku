@@ -2,8 +2,8 @@ import { env } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 import { PARSE_RESULT_JSON_SCHEMA } from "../../src/worker/parsing/schema";
 
-// Ticket 28 probe — TEMPORARY. Delete once the culprit construct is recorded in
-// .scratch/struku-daily/issues/28-parse-schema-5024.md.
+// Ticket 29 probe — TEMPORARY. Delete once the culprit construct is recorded in
+// .scratch/struku-daily/issues/29-parse-schema-5024.md.
 //
 // Non-gating: test/live/** is excluded from `npm test` (vitest.config.ts) and
 // only runs via `npm run test:live`. Needs live Cloudflare credentials and burns
@@ -165,7 +165,7 @@ type Outcome = {
 
 const outcomes: Outcome[] = [];
 
-describe("ticket 28: which JSON Schema construct triggers 5024", () => {
+describe("ticket 29: which JSON Schema construct triggers 5024", () => {
 	for (const step of STEPS) {
 		it(`${step.id} — ${step.construct}`, async () => {
 			const started = Date.now();
