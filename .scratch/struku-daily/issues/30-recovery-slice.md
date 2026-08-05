@@ -1,7 +1,7 @@
 # 30 — Slice pemulihan: kembalikan pencatatan transaksi ke produksi
 
 Type: task
-Status: claimed
+Status: resolved
 Blocked by: —
 
 ## Question
@@ -54,7 +54,7 @@ menyentuh [20](20-stats-refresh-trigger.md).
       ini pembuktian sebenarnya bahwa `5024` hilang. ⚠️ Naikkan `testTimeout`-nya
       ke 45s lebih dulu: probe #1 melihat `5024` tiba di **28s**, jadi dinding 20s
       yang sekarang menyamarkan penolakan sebagai timeout.
-- [ ] `wrangler deploy` **sekali**, lalu `wrangler tail` saat mengirim transaksi
+- [x] `wrangler deploy` **sekali**, lalu `wrangler tail` saat mengirim transaksi
       sungguhan dari Telegram. Guardrail miniflare ≠ workerd — wajib, bukan opsional.
 - [x] Setelah normalisasi pindah ke produksi:
       `test/live/reply-composer-probe.test.ts` boleh dihapus (sampai saat itu ia
@@ -113,11 +113,71 @@ _dikirim_.** Cukup untuk hari ini (satu panggilan, satu skema), tapi panggilan-2
 yang mengirim literal tanpa mendaftarkannya lolos tanpa penjagaan. Celah ini
 harus ditutup saat panggilan-2 mendarat.
 
-### Yang tersisa: satu langkah, dan ia HITL
+---
 
-`wrangler deploy` **diblokir classifier harness** di sesi ini, jadi deploy +
-`wrangler tail` dikerjakan pemilik repo. Tiket sengaja **tetap `claimed`, tidak
-resolved** — DoD-nya belum lunas, dan guardrail miniflare ≠ workerd belum dibayar.
+## Answer
+
+**Resolved 2026-08-05.** Empat butir dibangun, dideploy sekali, dan **terbukti di
+workerd sungguhan**. Pengecualian freeze #1 sekarang **terpakai habis**.
+
+### Deploy
+
+Versi produksi **`7436f2b5` → `6d432d89`** (Version ID
+`6d432d89-6a93-49bf-8919-84f88dc5c50e`), `https://struku.sngrcreative.workers.dev`.
+Dijalankan pemilik repo — `wrangler deploy` diblokir classifier harness di sesi
+agent.
+
+### Bukti guardrail miniflare ≠ workerd
+
+**1. `wrangler tail`, ~10 pesan / 3 menit: semua `Ok`.** Yang paling berarti
+justru **yang tidak muncul** — nol `parse: env.AI.run threw` dan nol
+`parse: unrecognized env.AI response shape`. Kedua log itu dipasang persis untuk
+jalur ini, jadi diamnya bermakna, bukan sekadar tidak ada kabar. Tidak ada
+`AiError` yang menembus jalur pesan seperti sebelum ini.
+
+**2. D1 `--remote`: transaksi benar-benar tercatat** — dan ini bukti yang lebih
+keras dari tail, karena `Ok` cuma berarti "tak ada exception", bukan "uang
+tercatat".
+
+```
+entry  019fd0e6-52de-7d9a-9305-c22522f9e204
+       entry_date 2026-08-05 · status posted
+       description "Nonton bioskop 100k"   ← verbatim
+lines  debit  expense_entertainment  100000 IDR
+       credit cash                   100000 IDR   ← balanced
+```
+
+Parsing benar di dua tempat yang sebelumnya mustahil dicapai: `"100k"` → `100000`
+dan `"bioskop"` → `entertainment`.
+
+**3. `COUNT(*) FROM journal_entries` = 1.** DB dikosongkan 2026-08-01, jadi ini
+**transaksi pertama yang pernah tercatat di produksi**. Jam tolok ukur destination
+(*tujuh hari berturut-turut*) baru sekarang bisa mulai berdetak.
+
+### Efek samping: utang verifikasi [22](22-persist-entry-description.md) **lunas**
+
+`description` berisi teks user verbatim di baris produksi sungguhan — sesuatu
+yang `map.md` § Notes catat sebagai *"sudah dibangun & hijau lokal, belum pernah
+terbukti di produksi"*. Sekarang terbukti.
+
+⚠️ **[23B](23-draft-confirmation-surface.md) TIDAK ikut lunas.** Balasan tiga
+baris + *"Pengeluaran hari ini"* adalah teks balasan, dan D1 maupun tail tidak
+bisa melihatnya. Ia butuh pengamatan pemilik repo di layar Telegram — **masih
+utang**.
+
+### Yang **tidak** ditutup tiket ini
+
+1. **Freeze tetap berdiri.** Pengecualian #1 habis dipakai. Deploy berikutnya
+   butuh keputusan baru — tiket ini bukan pencabutan.
+2. **Override eksekusi habis bersama slice-nya.** Map kembali planning-only.
+3. **[24](24-edit-mode-escape.md) masih menjebak di produksi**, jadi pemakaian
+   harian belum tentu mengalir walau pencatatan pulih.
+4. **Revisi ADR-0005 belum ditulis** — sengaja, lihat § Catatan. Sekarang ada
+   **lima** butir menunggu: §1+§2 dari [15](15-conversational-surface.md), §6 dari
+   [28](28-transaction-gate-arity.md), dan §3/§6/§7 dari
+   [29](29-parse-schema-5024.md).
+5. **Dua celah pengaman yang ditemukan sambil jalan** (lihat § Kemajuan) belum
+   diputuskan nasibnya → difogkan di `map.md`.
 
 ## Catatan
 

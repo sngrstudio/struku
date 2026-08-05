@@ -73,19 +73,19 @@ yang bikin dia berhenti.*
   Kredensial Cloudflare juga tidak ada di environment remote (`wrangler whoami`
   = not authenticated), jadi **`test:live` dan `wrangler d1 --remote` hanya bisa
   dijalankan pemilik repo di mesinnya.**
-- **Mode:** planning-by-default, dengan **satu override eksekusi bernomor**
-  (diputuskan 2026-08-05, butir 3 [29](issues/29-parse-schema-5024.md)):
-  [30 · Slice pemulihan](issues/30-recovery-slice.md) **boleh dibangun dan
-  dirilis**. Cakupannya terkunci di tiket 30 — empat butir, tidak lebih. Segala
-  hal lain di map ini tetap memutuskan, bukan membangun. Override ini **tidak**
-  berlaku untuk tiket berikutnya.
+- **Mode:** planning-by-default. Satu override eksekusi bernomor pernah diberikan
+  (butir 3 [29](issues/29-parse-schema-5024.md)) untuk
+  [30 · Slice pemulihan](issues/30-recovery-slice.md), dan ✅ **sudah habis
+  terpakai 2026-08-05** — slice-nya dibangun, dirilis, dan terbukti. **Map kembali
+  planning-only sepenuhnya.** Override berikutnya butuh keputusan baru.
 - **🧊 DEPLOYMENT FREEZE (diputuskan 2026-08-01, berlaku sampai map ini selesai).**
-  ⚠️ **Pengecualian #1 diberikan 2026-08-05** (butir 3
-  [29](issues/29-parse-schema-5024.md)): **satu** deploy untuk
-  [30 · Slice pemulihan](issues/30-recovery-slice.md), wajib disertai
-  `npm run test:live` + `wrangler tail`. Freeze **tidak dicabut** — ia tetap
-  berlaku untuk segala hal di luar tiket 30, dan deploy berikutnya butuh keputusan
-  baru. Alasannya: freeze-nya **melingkar** — map lepas freeze saat selesai, tapi
+  ✅ **Pengecualian #1 diberikan 2026-08-05 dan SUDAH TERPAKAI HABIS hari itu
+  juga** (butir 3 [29](issues/29-parse-schema-5024.md)): **satu** deploy untuk
+  [30 · Slice pemulihan](issues/30-recovery-slice.md), disertai
+  `npm run test:live` (7/7 lolos) + `wrangler tail` (bersih) + verifikasi D1
+  `--remote`. Produksi naik `7436f2b5` → `6d432d89`. Freeze **tidak dicabut** — ia
+  tetap berlaku untuk segala hal di luar tiket 30, jatah pengecualiannya **nol**,
+  dan deploy berikutnya butuh keputusan baru. Alasannya: freeze-nya **melingkar** — map lepas freeze saat selesai, tapi
   sebagian fog di § Not yet specified menunggu **bukti pemakaian**, yang butuh bot
   yang jalan, yang butuh deploy. Sebagian sisa map secara struktural tidak bisa
   selesai selama freeze berdiri utuh.
@@ -107,13 +107,30 @@ yang bikin dia berhenti.*
     latency dua panggilan berurutan di workerd asli lawan anggaran NFR-PERF-01
     5–10s. Kalau tembus, ketahuannya menumpuk di ujung. Miniflare ≠ workerd tetap
     berlaku — dua bug produksi sudah pernah lolos lewat celah ini.
-  - **Utang verifikasi yang menunggu deploy terakhir** (jangan dianggap lunas):
-    [22](issues/22-persist-entry-description.md) (`description` verbatim + shim
-    `ALTER TABLE` di Coordinator lama) dan
-    [23B](issues/23-draft-confirmation-surface.md) (balasan tiga baris +
-    `Pengeluaran hari ini`). Keduanya sudah dibangun & hijau lokal, **belum
-    pernah terbukti di produksi**.
-  - 🚨 **Kondisi produksi berubah 2026-08-03 dan freeze perlu ditimbang ulang.**
+  - **Utang verifikasi yang menunggu deploy terakhir.**
+    ✅ [22](issues/22-persist-entry-description.md) (`description` verbatim)
+    **LUNAS 2026-08-05** — deploy tiket 30 menghasilkan entry produksi sungguhan
+    dengan `description = "Nonton bioskop 100k"`, dibaca lewat D1 `--remote`.
+    ⚠️ [23B](issues/23-draft-confirmation-surface.md) (balasan tiga baris +
+    `Pengeluaran hari ini`) **masih utang** — ia teks balasan, jadi D1 maupun
+    `wrangler tail` tidak bisa melihatnya; ia butuh pengamatan pemilik repo di
+    layar Telegram. Jangan dianggap ikut lunas hanya karena satu transaksi
+    berhasil di-commit.
+    🟡 **Pengamatan pertama sudah ada dan hasilnya belum memuaskan.** Sesi deploy
+    2026-08-05, pemilik repo: *"output masih belum seperti yang diinginkan, namun
+    kita abaikan dulu untuk di lain waktu"* — **ditunda sadar**. Yang persisnya
+    meleset **tidak tercatat**, jadi ini sinyal, bukan diagnosis: jangan dikutip
+    seolah 23B sudah divonis salah, dan jangan pula dianggap lunas. Tanyakan
+    detailnya sebelum menggrilling apa pun yang menyentuh permukaan balasan.
+    Terikat ke fog **"Nada dan persona bot"** dan **"bentuk kontrak slot angka"**
+    di bawah — keduanya soal *bunyi* balasan, dan ini bukti lapangan pertama
+    untuk keduanya.
+  - ✅ **[SELESAI 2026-08-05 — dipertahankan sebagai riwayat, jangan dibaca
+    sebagai kondisi sekarang.]** Kerusakan di bawah **sudah diperbaiki dan
+    dibuktikan** oleh [30](issues/30-recovery-slice.md); freeze sudah ditimbang
+    ulang dan hasilnya pengecualian #1. Baca alinea ini hanya untuk memahami
+    kenapa pengecualian itu diberikan.
+    🚨 **Kondisi produksi berubah 2026-08-03 dan freeze perlu ditimbang ulang.**
     `test:live` menemukan jalur pencatatan transaksi **gagal 7/7** dengan
     `AiError: 5024: JSON Model couldn't be met` — dua run terpisah, bukan transien
     → [29](issues/29-parse-schema-5024.md). `ai.run` **melempar**, dan tidak ada
@@ -133,7 +150,10 @@ yang bikin dia berhenti.*
     bukan panggilan menggantung. Probe dihapus. **Tiket 29 tetap open** — pilihan
     perbaikannya (buang nullability vs pindah ke `json_object`+Zod) dua-duanya
     revisi ADR-0005 §3 dan **masih HITL**.
-  - **Kondisi produksi selama freeze:** versi terpasang `7436f2b5`, dan bot
+  - **Kondisi produksi selama freeze:** versi terpasang **`6d432d89`**
+    (naik dari `7436f2b5` lewat pengecualian #1, 2026-08-05). Jalur pencatatan
+    transaksi **sudah pulih dan terbukti** — lihat
+    [30](issues/30-recovery-slice.md). Tapi bot
     **masih menjebak di mode edit** ([24](issues/24-edit-mode-escape.md)).
     Tambalan cepat ditawarkan dan **ditolak** — konsisten dengan freeze.
     Konsekuensinya: pemakaian harian nyata praktis terhenti, jadi fog yang
@@ -434,6 +454,27 @@ yang bikin dia berhenti.*
   [30 · Slice pemulihan](issues/30-recovery-slice.md) — satu-satunya tiket yang
   **membangun**, dan pemegang override eksekusi.
 
+- [30 · Slice pemulihan: kembalikan pencatatan transaksi ke produksi](issues/30-recovery-slice.md)
+  (task) — **pencatatan transaksi hidup lagi, dan terbukti di workerd.** Satu-satunya
+  tiket map ini yang **membangun**; pemegang override eksekusi, sekarang **habis
+  terpakai**. Empat butir mendarat: `anyOf` di `schema.ts`, `ParseOutcome`
+  (discriminated union — compiler, bukan konvensi, yang memisahkan kegagalan
+  panggilan dari kegagalan parse), satu boundary normalisasi respons yang mengerti
+  `{response}` **dan** `choices`, dan unit test deterministik penegak aturan skema.
+  **`5024` hilang:** `test:live` **7/7 lolos** (dua run), lawan 7/7 gagal di tiga run
+  konklusif sebelumnya — dan tak satu pun mendekati dinding 45s, jadi gejala
+  "timeout 20s" run-5 memang `5024` yang telat, terkonfirmasi. Deploy
+  **`7436f2b5` → `6d432d89`**; `wrangler tail` bersih (nol log kegagalan panggilan
+  yang sengaja dipasang), dan D1 `--remote` menunjukkan entry sungguhan
+  **balanced** (debit `expense_entertainment` / credit `cash` 100.000 IDR) dengan
+  `"100k"` → `100000` dan `"bioskop"` → `entertainment`. `COUNT(*) = 1` — **transaksi
+  pertama yang pernah tercatat di produksi** sejak DB dikosongkan 1 Agustus, jadi
+  jam tolok ukur destination baru sekarang bisa mulai. ✅ **Utang verifikasi
+  [22](issues/22-persist-entry-description.md) lunas** (`description` verbatim di
+  baris produksi). ⚠️ **[23B](issues/23-draft-confirmation-surface.md) tidak ikut
+  lunas** — ia teks balasan, tak terlihat dari D1 maupun tail. ⚠️ **Freeze tidak
+  dicabut** dan override eksekusi habis bersama slice-nya; map kembali planning-only.
+
 ## Not yet specified
 
 <!-- in-scope fog; graduates into tickets as the frontier advances -->
@@ -493,6 +534,26 @@ yang bikin dia berhenti.*
   nyata **bukan** keengganan membaca, melainkan **biaya memperbaiki setelah
   membaca**. Timbang ulang fog ini setelah 24 selesai; mungkin bentuk aslinya
   salah.
+
+- **Pengaman yang terlihat ada padahal tidak — dua celah ditemukan saat
+  membangun [30](issues/30-recovery-slice.md).** Keputusan pertanyaan 4 tiket
+  [29](issues/29-parse-schema-5024.md) membeli satu lapis pencegahan lokal, dan
+  slice-nya sendiri langsung menabrak dua tempat yang lapis itu **tidak** jangkau:
+  (a) **`tsc` tidak pernah meng-cover `test/`** — root `tsconfig.json` cuma
+  mereferensi `app`/`node`/`worker`, dan `test/tsconfig.json` ada tapi tidak
+  terdaftar; akibatnya live contract test yang rusak oleh perubahan signature
+  `parse()` lolos `tsc` **dan** lolos `npm test` (`test/live/**` dikecualikan),
+  ketahuan hanya karena `test:live` kebetulan dijalankan; (b) **registry
+  `RESPONSE_FORMAT_SCHEMAS` menjaga skema yang _terdaftar_, bukan yang _dikirim_**
+  — panggilan-2 yang mengirim literal tanpa mendaftarkannya lolos tanpa penjagaan.
+  Sengaja tidak diperbaiki di tiket 30 (di luar "persis tiga, tidak lebih", dan
+  menyalakan (a) bisa memunculkan error tipe se-suite tepat sebelum deploy).
+  **Belum cukup tajam untuk di-ticket, dan pertanyaan pertamanya bukan "bagaimana
+  menutupnya" tapi "apakah ini masuk destination sama sekali"** — ini soal *cara
+  membangun*, kelas yang sama dengan lima kandidat survei arsitektur dan dengan
+  butir 0 [27](issues/27-vendored-skill-doc-mitigation.md). Yang membedakannya:
+  keduanya turunan langsung dari keputusan yang **sudah** in-scope, dan (b) punya
+  tenggat alami — ia harus ditutup **saat panggilan-2 mendarat**, bukan kapan saja.
 
 - **Akurasi kategori pada pemakaian nyata.** Pemilik repo melaporkan setidaknya
   satu transaksi masuk kategori yang salah, tapi frasa persisnya tidak tercatat
@@ -575,6 +636,16 @@ yang bikin dia berhenti.*
 - **Nada dan persona bot.** Kalau [15](issues/15-conversational-surface.md)
   memutuskan bot boleh ngobrol, "ngobrol seperti apa" adalah pertanyaan
   berikutnya — dan sebagian jawabannya soal selera, bukan arsitektur.
+  🟡 **Bukti lapangan pertama, 2026-08-05:** setelah pencatatan pulih
+  ([30](issues/30-recovery-slice.md)), pemilik repo memakai bot di produksi dan
+  melaporkan *"output masih belum seperti yang diinginkan"* — lalu **sengaja
+  menundanya**. Frasanya tidak tercatat dan tidak dikejar (keputusan sadar, pola
+  yang sama dengan fog "akurasi kategori"). Nilainya: fog ini berhenti jadi
+  antisipasi dan mulai punya keluhan nyata, **tapi belum punya isi**. Langkah
+  pertama saat digraduasikan nanti bukan mendesain persona — tapi **menanyakan
+  apa yang meleset**, karena "belum seperti yang diinginkan" bisa berarti nada,
+  bisa berarti rincian 23B, bisa berarti slot yang bocor. Ketiganya obat yang
+  berbeda.
 - **Beban konfirmasi.** Tiap transaksi sekarang wajib dikonfirmasi. Belum
   terbukti mengganggu (belum dipakai harian), tapi kalau iya, pertanyaannya
   menyentuh ADR-0004 dan flow draft. Tunggu bukti pemakaian.
