@@ -1,7 +1,7 @@
 # 24 — Terjebak di mode edit: tidak ada jalan keluar
 
 Type: grilling
-Status: open
+Status: claimed
 Blocked by: —
 
 ## Question
