@@ -73,8 +73,22 @@ yang bikin dia berhenti.*
   Kredensial Cloudflare juga tidak ada di environment remote (`wrangler whoami`
   = not authenticated), jadi **`test:live` dan `wrangler d1 --remote` hanya bisa
   dijalankan pemilik repo di mesinnya.**
-- **Mode:** planning-by-default (tidak ada override eksekusi).
+- **Mode:** planning-by-default, dengan **satu override eksekusi bernomor**
+  (diputuskan 2026-08-05, butir 3 [29](issues/29-parse-schema-5024.md)):
+  [30 · Slice pemulihan](issues/30-recovery-slice.md) **boleh dibangun dan
+  dirilis**. Cakupannya terkunci di tiket 30 — empat butir, tidak lebih. Segala
+  hal lain di map ini tetap memutuskan, bukan membangun. Override ini **tidak**
+  berlaku untuk tiket berikutnya.
 - **🧊 DEPLOYMENT FREEZE (diputuskan 2026-08-01, berlaku sampai map ini selesai).**
+  ⚠️ **Pengecualian #1 diberikan 2026-08-05** (butir 3
+  [29](issues/29-parse-schema-5024.md)): **satu** deploy untuk
+  [30 · Slice pemulihan](issues/30-recovery-slice.md), wajib disertai
+  `npm run test:live` + `wrangler tail`. Freeze **tidak dicabut** — ia tetap
+  berlaku untuk segala hal di luar tiket 30, dan deploy berikutnya butuh keputusan
+  baru. Alasannya: freeze-nya **melingkar** — map lepas freeze saat selesai, tapi
+  sebagian fog di § Not yet specified menunggu **bukti pemakaian**, yang butuh bot
+  yang jalan, yang butuh deploy. Sebagian sisa map secara struktural tidak bisa
+  selesai selama freeze berdiri utuh.
   Tidak ada `wrangler deploy` sampai **map selesai dan tidak ada kesalahan**.
   Pembangunan, commit, dan `npm test` jalan seperti biasa; hanya rilis ke
   produksi yang ditahan, lalu dilakukan **sekali di akhir**.
@@ -390,6 +404,35 @@ yang bikin dia berhenti.*
   kecil) dan [26](issues/26-spending-habits-memory.md) (kebiasaan belanja,
   blocked by 16). **Lima hal belum tertutup** — tercatat di § "Yang belum
   tertutup" tiket.
+
+- [29 · Skema parsing ADR-0005 §3 ditolak model (`5024`)](issues/29-parse-schema-5024.md)
+  (grilling) — **jalur pencatatan transaksi rusak di produksi, dan penyebabnya
+  bukan yang diduga.** Dua probe isolasi (dihapus setelah menjawab) menunjukkan
+  validator `json_schema` Cloudflare menuntut **JSON Schema ketat**: `type`
+  bernilai tunggal, union lewat **`anyOf`**. `type` sebagai array **dan** ejaan
+  OpenAPI `nullable: true` dua-duanya ditolak; `enum`, jumlah field, dan `null`
+  di dalam `enum` semuanya **tidak bersalah** — tersangka yang ditulis di tiket
+  awalnya salah. Lima keputusan: (1) skema pakai **`anyOf`**, sehingga opsi
+  "buang nullability" (kontrak jadi stringly-typed) dan "pindah ke `json_object`"
+  (bayar latency yang sudah mepet 9,6s lawan anggaran 10s) **dua-duanya
+  ditolak** — probe #2 membuktikan keduanya tidak perlu, dan revisi §3 turun jadi
+  satu paragraf; (2) **kegagalan panggilan wajib terpisah dari kegagalan parse**,
+  ditangkap di boundary `TextParser`, dibalas *"sistem bermasalah"* — menyatukan
+  keduanya membuat user menyalahkan dirinya sendiri untuk kerusakan sistem, dan
+  pesan yang gagal dianggap **hilang**, tidak diantre; (3) **freeze dikecualikan
+  sempit** untuk satu deploy + override eksekusi untuk slice itu saja, karena
+  freeze-nya terbukti **melingkar** (map lepas freeze saat selesai, tapi sebagian
+  fog butuh bukti pemakaian yang butuh bot yang jalan); (4) pencegahan **dua
+  lapis** — unit test lokal deterministik menegakkan aturan skema, `test:live`
+  jadi langkah wajib **pra-deploy bukan gate CI** (gate yang merah karena platform
+  lambat akan dipelajari untuk diabaikan), alert produksi ditolak, jeda deteksi
+  selebar jarak antar-deploy diterima sadar; (5) **satu boundary normalisasi
+  respons** untuk kedua panggilan, bentuk tak dikenal = kegagalan panggilan —
+  bobotnya naik jadi **prasyarat** arsitektur 15, karena SEA-LION sudah memakai
+  bentuk `choices` hari ini sementara produksi hanya membaca `.response`.
+  ⚠️ **Butir kelima yang menunggu revisi ADR-0005** (§3, §6, §7). Digraduasikan:
+  [30 · Slice pemulihan](issues/30-recovery-slice.md) — satu-satunya tiket yang
+  **membangun**, dan pemegang override eksekusi.
 
 ## Not yet specified
 
