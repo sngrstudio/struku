@@ -1,7 +1,7 @@
 # 29 — Skema parsing ADR-0005 §3 ditolak model: `5024 JSON Model couldn't be met`
 
 Type: grilling
-Status: open
+Status: claimed
 Blocked by: —
 
 ## Question
@@ -312,3 +312,79 @@ ulang) juga belum tersentuh dan tidak berubah oleh run ini.
 
 `test/live/schema-isolation-probe.test.ts` sudah menjawab pertanyaannya dan menulis
 sendiri bahwa ia sementara — dihapus di commit yang sama dengan catatan ini.
+
+## Run-6 (2026-08-05): probe #2 — **`anyOf` diterima, `nullable: true` ditolak**
+
+Probe #1 menamai konstruk yang ditolak tapi meninggalkan ruang opsi yang belum
+lengkap: dua opsi yang tertulis di pertanyaan 1 sama-sama mahal, dan **tidak
+satu pun terbukti perlu**. Probe #2 menutup ruang itu sebelum ADR ditulis.
+
+| Langkah | Vonis | Durasi | Konstruk |
+|---|---|---|---|
+| N1 | ✅ OK | 3.144ms | KONTROL: 2 string polos |
+| N2 | ❌ REJECTED | 10.164ms | satu field: `nullable: true` (ejaan OpenAPI) |
+| N3 | ✅ OK | 1.253ms | satu field: `anyOf: [{string},{null}]` |
+| N4 | ✅ OK | 6.339ms | satu field: `anyOf` membungkus `enum` (kasus `txn_type`) |
+| N5 | ❌ REJECTED | 20.472ms | **skema asli** via `nullable: true` |
+| N6 | ✅ OK | **2.380ms** | **skema asli via `anyOf`** |
+| N7 | ✅ OK | 3.283ms | skema asli opsi A (nullability dibuang) |
+| N8 | ❌ REJECTED | 26.796ms | KONTROL: `PARSE_RESULT_JSON_SCHEMA` verbatim |
+
+Kedua kontrol berperilaku identik dengan probe #1 (N1 lolos, N8 ditolak), jadi
+kedua run sebanding dan hasilnya bukan pergeseran platform.
+
+### Temuan utama: ada opsi ketiga, dan ia jauh lebih murah dari keduanya
+
+**N6** — skema asli, tujuh field, dua `enum`, lima field nullable, **hanya** cara
+menulis nullable-nya diganti jadi `anyOf` — diterima dalam 2.380ms dan menjawab:
+
+```json
+{"intent":"transaction","txn_type":"expense","amount":25,
+ "currency":"VND","category":"food","date":null,"clarification":null}
+```
+
+`null` **sungguhan**, bukan sentinel. Nullability utuh, prior struktural utuh,
+`parseResultSchema` tidak perlu disentuh, tidak ada sentinel yang harus
+dinormalkan Zod.
+
+Konsekuensinya untuk pertanyaan 1: **opsi A dan opsi B dua-duanya tidak perlu.**
+Revisi ADR-0005 §3 turun dari "mengganti kontrak parsing" jadi satu paragraf, dan
+diff-nya terbatas pada [`schema.ts:32-50`](../../../src/worker/parsing/schema.ts).
+
+### `nullable: true` juga ditolak — jadi ini bukan soal "array"
+
+N2 dan N5 menolak ejaan OpenAPI. Digabung dengan probe #1, polanya: validator
+`json_schema` Cloudflare menuntut **JSON Schema ketat** — `type` bernilai tunggal,
+union dinyatakan lewat `anyOf`. Ini lebih sempit dari kesimpulan run-5 ("`type`
+array ditolak") dan lebih berguna: ia memberi aturan, bukan daftar larangan.
+
+### Opsi A memang lolos, tapi biayanya terlihat — sebagian
+
+N7 diterima, jadi opsi A **bisa** dijalankan. Payload-nya memperlihatkan kerusakan
+yang diperkirakan: `date: ""` muncul sebagai sentinel string kosong karena tidak
+ada `null` untuk dipakai.
+
+⚠️ Yang **belum terbukti**: dugaan bahwa `txn_type` akan dikarang saat pesannya
+bukan transaksi. Pesan uji probe ini transaksi sungguhan, jadi jalur itu tidak
+pernah tersentuh. Biaya opsi A nyata tetapi **belum terukur penuh** — jangan
+dikutip sebagai sudah terbukti.
+
+### Keberatan yang tetap berdiri terhadap `anyOf`
+
+`anyOf` **sama tidak terdokumentasinya** dengan `type` array yang barusan merusak
+jalur transaksi — halaman JSON Mode tidak menyebut keduanya. Memilihnya berarti
+Struku sadar berdiri di atas perilaku platform yang tidak dijanjikan, dan kelas
+kerusakan yang sama bisa kembali kalau validatornya digeser.
+
+Itu **tidak** ditutup oleh memilih opsi B; itu ditutup oleh **pertanyaan 4**
+(bagaimana ini tidak lolos lagi). `test:live` terbukti menangkap kelas ini, tapi
+ia non-gating dan jarang dijalankan. Tanpa jawaban untuk pertanyaan 4, keberatan
+ini tetap terbuka apa pun yang dipilih.
+
+### Status pertanyaan 1
+
+**Belum ditutup — menunggu pemilik repo.** Rekomendasi agent: `anyOf`. Bukti dan
+biayanya ada di atas; keputusannya bukan milik agent.
+
+Probe #2 (`test/live/schema-null-form-probe.test.ts`) dihapus setelah catatan ini,
+sama seperti probe #1.
