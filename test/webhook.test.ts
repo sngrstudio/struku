@@ -26,7 +26,7 @@ const parseCalls: string[] = [];
 async function injectCannedTextParser(userId: string): Promise<void> {
 	await injectFakeTextParser(env.Coordinator, userId, async (text) => {
 		parseCalls.push(text);
-		return CANNED_RESULT;
+		return { kind: "parsed", result: CANNED_RESULT };
 	});
 }
 

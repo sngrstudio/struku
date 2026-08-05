@@ -27,6 +27,11 @@ export default defineConfig({
 	test: {
 		include: ["test/live/**/*.test.ts"],
 		setupFiles: ["./test/apply-migrations.ts"],
-		testTimeout: 20000, // live model calls; #05 spike p95 ~2.4s but leave margin
+		// Live model calls. NOT sized to the median: a `5024` rejection was once
+		// measured arriving at 28.0s (ticket 29 probe #1, step S4), so the old
+		// 20s wall disguised platform REJECTIONS as hung calls and hid the real
+		// diagnosis for two sessions. Rejection latency swings 1.3s–28.0s on the
+		// same mechanism, so this is sized for the tail.
+		testTimeout: 45000,
 	},
 });

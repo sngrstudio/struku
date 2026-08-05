@@ -26,6 +26,23 @@ export interface ParseResult {
 	clarification: string | null; // in the user's language when a field is missing
 }
 
+/**
+ * The two outcomes of asking the model to read a message, kept apart on purpose
+ * (ADR-0005 §6; ticket 29 question 2).
+ *
+ * `call_failed` means the call itself did not land — it threw, or the binding
+ * answered in a shape this code cannot read. `parsed` means the call landed and
+ * the result is whatever the model said, INCLUDING a result that means "I could
+ * not make sense of this" (UNKNOWN_REPHRASE_RESULT).
+ *
+ * Collapsing the two lets a broken system say "I didn't understand you", which
+ * makes the user rewrite a message that was never at fault. A union rather than
+ * a sentinel value so the compiler, not a convention, keeps them apart.
+ */
+export type ParseOutcome =
+	| { kind: "parsed"; result: ParseResult }
+	| { kind: "call_failed" };
+
 export interface TextParser {
-	parse(text: string, locale: Locale): Promise<ParseResult>;
+	parse(text: string, locale: Locale): Promise<ParseOutcome>;
 }

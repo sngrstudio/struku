@@ -79,6 +79,26 @@ const REPHRASE_REPLY: Record<Locale, string> = {
 	en: "Hmm, I didn't quite get that. Could you rephrase?",
 };
 
+// ADR-0005 §6: "the system is having trouble" is a DIFFERENT reply from "I
+// didn't understand you" (ticket 15 butir 4, ticket 29 question 2). The
+// distinction is the point — a rephrase prompt for a system fault sends the
+// user off rewriting a message that was never at fault, failing again, and
+// blaming themselves.
+//
+// It asks the user to resend, because a failed message is treated as LOST:
+// Struku does not queue it and does not retry behind the scenes (ticket 29,
+// accepted consciously). "Sebentar" is deliberately vague — no timeout/retry
+// policy has been decided to put a number on yet.
+const SYSTEM_TROUBLE_REPLY: Record<Locale, string> = {
+	id: "Aduh, sistemnya lagi bermasalah — pesannya belum kecatat. Coba kirim lagi sebentar ya?",
+	en: "Sorry, the system is having trouble — that message wasn't recorded. Could you send it again in a moment?",
+};
+
+/** The reply for a model call that never landed (ParseOutcome `call_failed`). */
+export function systemTroubleReply(locale: Locale): OutboundAction {
+	return { kind: "text", text: SYSTEM_TROUBLE_REPLY[locale] };
+}
+
 /**
  * Renders a ParseResult to a plain-language reply. As of ticket 13, the
  * Coordinator intercepts a clean transaction parse (amount + txn_type both

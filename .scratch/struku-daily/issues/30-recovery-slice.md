@@ -1,7 +1,7 @@
 # 30 — Slice pemulihan: kembalikan pencatatan transaksi ke produksi
 
 Type: task
-Status: open
+Status: claimed
 Blocked by: —
 
 ## Question

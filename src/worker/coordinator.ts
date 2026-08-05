@@ -27,7 +27,7 @@ import { commitTransaction } from './ledger/writer';
 import { sumExpensesOnDate } from './ledger/daily-total';
 import { uuidv7 } from './lib/uuidv7';
 import { detectAssetAccountSlug } from './ledger/payment-method';
-import { buildParseReply } from './parsing/reply';
+import { buildParseReply, systemTroubleReply } from './parsing/reply';
 import type { TextParser } from './parsing/types';
 import { WorkersAiTextParser } from './parsing/workers-ai-text-parser';
 
@@ -278,7 +278,16 @@ export class Coordinator extends Agent<Env> {
 			// EC-TXT-03: falls through to starting a NEW draft below.
 		}
 
-		const result = await this.textParser.parse(message.text, locale);
+		const outcome = await this.textParser.parse(message.text, locale);
+
+		// A call that never landed is not a message we failed to understand
+		// (ADR-0005 §6). The catch itself lives at the TextParser boundary, so
+		// this stays a branch on an outcome rather than a try/catch here — the
+		// Coordinator never needs to know env.AI exists.
+		if (outcome.kind === 'call_failed') {
+			return systemTroubleReply(locale);
+		}
+		const result = outcome.result;
 
 		if (
 			result.intent === 'transaction' &&

@@ -29,6 +29,17 @@ export const parseResultSchema = z.object({
 // The JSON schema passed to response_format (ADR-0005 §1/§3): one flat object,
 // intent required, everything else nullable — no nested sub-objects (the #05
 // spike's load-bearing finding: nesting degenerated into a whitespace loop).
+//
+// Nullability is spelled with `anyOf`, and that spelling is load-bearing, not
+// style. Cloudflare's json_schema validator wants strict JSON Schema: `type` a
+// single value, unions via `anyOf`. The earlier `type: ["string","null"]` form
+// (and the OpenAPI `nullable: true` form) are both rejected with
+// `5024: JSON Model couldn't be met` — which took down the whole transaction
+// path in production, 7/7 live tests failing across three conclusive runs.
+// Neither form is mentioned by Cloudflare's docs in either direction; the rule
+// came out of two isolation probes (ticket 29 runs 5 and 6), and
+// test/response-format-schema-rules.test.ts is what keeps it from being undone
+// by a well-meant edit.
 export const PARSE_RESULT_JSON_SCHEMA = {
 	type: "object",
 	properties: {
@@ -36,15 +47,28 @@ export const PARSE_RESULT_JSON_SCHEMA = {
 			type: "string",
 			enum: ["transaction", "budget", "category", "query", "unknown"],
 		},
-		txn_type: { type: ["string", "null"], enum: ["income", "expense", null] },
-		amount: { type: ["number", "null"] },
+		txn_type: {
+			anyOf: [{ type: "string", enum: ["income", "expense"] }, { type: "null" }],
+		},
+		amount: { anyOf: [{ type: "number" }, { type: "null" }] },
 		currency: { type: "string" },
 		category: {
-			type: ["string", "null"],
-			enum: [...CATEGORY_SLUGS, null],
+			anyOf: [{ type: "string", enum: [...CATEGORY_SLUGS] }, { type: "null" }],
 		},
-		date: { type: ["string", "null"] },
-		clarification: { type: ["string", "null"] },
+		date: { anyOf: [{ type: "string" }, { type: "null" }] },
+		clarification: { anyOf: [{ type: "string" }, { type: "null" }] },
 	},
 	required: ["intent", "txn_type", "amount", "currency", "category", "date", "clarification"],
+} as const;
+
+/**
+ * Every JSON Schema this Worker hands to `response_format: json_schema`.
+ *
+ * Registered rather than checked one by one so the strict-JSON-Schema rule
+ * (test/response-format-schema-rules.test.ts) binds BOTH calls — call-2's
+ * reply-composition schema joins this map when it lands, and is covered the
+ * moment it does.
+ */
+export const RESPONSE_FORMAT_SCHEMAS = {
+	parseResult: PARSE_RESULT_JSON_SCHEMA,
 } as const;

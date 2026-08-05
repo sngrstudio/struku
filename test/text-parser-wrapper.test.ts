@@ -168,25 +168,107 @@ describe("WorkersAiTextParser.parse response-shape handling", () => {
 	}
 
 	it("reads an object-valued .response (json_schema mode)", async () => {
-		const result = await parserReturning(wellFormed).parse("kopi 25rb", "id");
+		const outcome = await parserReturning(wellFormed).parse("kopi 25rb", "id");
 
-		expect(result.intent).toBe("transaction");
-		expect(result.amount).toBe(25000);
+		expect(outcome).toEqual({
+			kind: "parsed",
+			result: expect.objectContaining({ intent: "transaction", amount: 25000 }),
+		});
 	});
 
 	it("still reads a string-valued .response", async () => {
-		const result = await parserReturning(JSON.stringify(wellFormed)).parse(
+		const outcome = await parserReturning(JSON.stringify(wellFormed)).parse(
 			"kopi 25rb",
 			"id",
 		);
 
-		expect(result.intent).toBe("transaction");
-		expect(result.amount).toBe(25000);
+		expect(outcome).toEqual({
+			kind: "parsed",
+			result: expect.objectContaining({ intent: "transaction", amount: 25000 }),
+		});
 	});
 
-	it("falls back to the rephrase result when .response is unusable", async () => {
-		const result = await parserReturning(null).parse("kopi 25rb", "id");
+	// Call-1 goes through the SAME normalization boundary as call-2, so the
+	// OpenAI chat-completion shape must work here too — proof the boundary is
+	// shared rather than merely written (ticket 29 question 5).
+	it("reads the OpenAI chat-completion shape through the shared boundary", async () => {
+		const fakeAi = {
+			run: async () => ({
+				choices: [{ message: { content: JSON.stringify(wellFormed) } }],
+			}),
+		} as unknown as Ai;
 
-		expect(result).toEqual(UNKNOWN_REPHRASE_RESULT);
+		const outcome = await new WorkersAiTextParser(fakeAi).parse("kopi 25rb", "id");
+
+		expect(outcome).toEqual({
+			kind: "parsed",
+			result: expect.objectContaining({ intent: "transaction", amount: 25000 }),
+		});
+	});
+});
+
+// Ticket 29 question 2: a CALL that failed and a MESSAGE that could not be
+// parsed are two different things, and the boundary that knows the difference
+// is this one. Merging them makes "the AI is down" wear the mask of "I didn't
+// understand you", so the user rewrites a fine message, fails again, and blames
+// themselves for a system fault — while every attempt burns neurons.
+describe("WorkersAiTextParser.parse call-failure handling", () => {
+	it("reports a thrown ai.run as a call failure, not as a parse failure", async () => {
+		const fakeAi = {
+			run: async () => {
+				throw new Error("AiError: 5024: JSON Model couldn't be met");
+			},
+		} as unknown as Ai;
+
+		const outcome = await new WorkersAiTextParser(fakeAi).parse("kopi 25rb", "id");
+
+		expect(outcome).toEqual({ kind: "call_failed" });
+	});
+
+	// ADR-0005 §7's single retry is for a model that answered badly. A call that
+	// never landed is a different fault and must not be paid for twice — the
+	// two retry policies stay unmixed (ticket 29, question 2).
+	it("does not retry a thrown call", async () => {
+		let calls = 0;
+		const fakeAi = {
+			run: async () => {
+				calls += 1;
+				throw new Error("Network connection lost");
+			},
+		} as unknown as Ai;
+
+		await new WorkersAiTextParser(fakeAi).parse("kopi 25rb", "id");
+
+		expect(calls).toBe(1);
+	});
+
+	// The shape ticket 29 question 5 is really about: nothing threw, the binding
+	// simply spoke a dialect this code does not read. Previously it collapsed to
+	// "" and left production silently unable to record.
+	it("reports an unrecognized response shape as a call failure", async () => {
+		const fakeAi = {
+			run: async () => ({ output_text: "surprise" }),
+		} as unknown as Ai;
+
+		const outcome = await new WorkersAiTextParser(fakeAi).parse("kopi 25rb", "id");
+
+		expect(outcome).toEqual({ kind: "call_failed" });
+	});
+
+	// A recognized shape with an unparseable payload is the model's fault, so it
+	// keeps the old behaviour exactly: one retry, then the rephrase result.
+	it("still retries and falls back to the rephrase result when the model answers badly", async () => {
+		let calls = 0;
+		const fakeAi = {
+			run: async () => {
+				calls += 1;
+				return { response: "not json at all" };
+			},
+		} as unknown as Ai;
+
+		const outcome = await new WorkersAiTextParser(fakeAi).parse("kopi 25rb", "id");
+
+		expect(outcome).toEqual({ kind: "parsed", result: UNKNOWN_REPHRASE_RESULT });
+		expect(calls).toBe(2);
 	});
 });

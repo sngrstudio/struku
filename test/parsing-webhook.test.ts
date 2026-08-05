@@ -267,6 +267,24 @@ describe("free-text parse & intent routing (ticket 12)", () => {
 		expect(reply.text.toLowerCase()).toMatch(/ngerti|rephrase/);
 	});
 
+	// Ticket 29 question 2. Before this, an AiError escaped as an unhandled
+	// Durable Object exception and the user saw NOTHING — the message vanished
+	// without a sound. The reply below is the whole visible difference.
+	it("a failed model call says the system is broken, not that the bot misunderstood", async () => {
+		const chatId = 800000010;
+		const userId = await seedOnboardedUser(String(chatId));
+		await injectFakeTextParser(env.Coordinator, userId, async () => ({
+			kind: "call_failed",
+		}));
+
+		const reply = await sendText(chatId, "kopi 25rb");
+
+		expect(reply.text.toLowerCase()).toContain("sistem");
+		// Load-bearing: telling the user "I didn't understand" for a system fault
+		// makes them rewrite a message that was never the problem.
+		expect(reply.text.toLowerCase()).not.toMatch(/ngerti|rephrase/);
+	});
+
 	it("does not write anything to the ledger for a clean parse alone, before confirm (ticket 13 commits only on confirm)", async () => {
 		const chatId = 800000009;
 		const userId = await seedOnboardedUser(String(chatId));

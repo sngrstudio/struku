@@ -18,8 +18,9 @@ export async function injectFakeTextParser(
 	});
 }
 
+/** A parser whose call always lands and always yields `result`. */
 export function constantParseResult(
 	result: ParseResult,
 ): TextParser["parse"] {
-	return async () => result;
+	return async () => ({ kind: "parsed", result });
 }

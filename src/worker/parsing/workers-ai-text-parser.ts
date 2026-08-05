@@ -1,9 +1,15 @@
 import type { Locale } from "../onboarding/types";
+import {
+	type NormalizedAiResponse,
+	normalizeAiResponse,
+} from "./normalize-ai-response";
 import { PARSE_RESULT_JSON_SCHEMA, parseResultSchema } from "./schema";
-import type { ParseResult, TextParser } from "./types";
+import type { ParseOutcome, ParseResult, TextParser } from "./types";
 
 const MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 const MAX_TOKENS = 512; // ADR-0005 §2: 256 default truncates.
+
+const CALL_FAILED: ParseOutcome = { kind: "call_failed" };
 
 export const UNKNOWN_REPHRASE_RESULT: ParseResult = {
 	intent: "unknown",
@@ -52,17 +58,20 @@ export function tryParseResult(raw: string): ParseResult | null {
 export class WorkersAiTextParser implements TextParser {
 	constructor(private readonly ai: Ai) {}
 
-	async parse(text: string, locale: Locale): Promise<ParseResult> {
+	async parse(text: string, locale: Locale): Promise<ParseOutcome> {
 		const messages = [
 			{ role: "system", content: systemPrompt(locale) },
 			{ role: "user", content: text },
 		];
 
 		const first = await this.callModel(messages);
-		const firstResult = tryParseResult(first);
-		if (firstResult) return firstResult;
+		if (first.kind === "unrecognized") return CALL_FAILED;
+		const firstResult = tryParseResult(first.text);
+		if (firstResult) return { kind: "parsed", result: firstResult };
 
 		// ADR-0005 §7: exactly one retry, same prompt plus a short error note.
+		// This retry answers a BAD ANSWER, never a failed call — a call that
+		// never landed is not made twice (ticket 29 question 2).
 		const retry = await this.callModel([
 			...messages,
 			{
@@ -71,42 +80,41 @@ export class WorkersAiTextParser implements TextParser {
 					"Your previous reply was not valid JSON matching the required schema. Reply again with ONLY the JSON object.",
 			},
 		]);
-		const retryResult = tryParseResult(retry);
-		if (retryResult) return retryResult;
+		if (retry.kind === "unrecognized") return CALL_FAILED;
+		const retryResult = tryParseResult(retry.text);
+		if (retryResult) return { kind: "parsed", result: retryResult };
 
-		return UNKNOWN_REPHRASE_RESULT;
+		return { kind: "parsed", result: UNKNOWN_REPHRASE_RESULT };
 	}
 
+	/**
+	 * One model call, reduced to a payload or "unrecognized". This is the ONLY
+	 * place in the parse path that touches env.AI, so it is also the only place
+	 * that has to know a call can fail: `ai.run` throws (5024, network, 5xx,
+	 * model withdrawn) and nothing further up the message path catches — the
+	 * AiError used to escape as an unhandled Durable Object exception and the
+	 * user saw nothing at all, their message gone without a sound.
+	 *
+	 * Keeping the catch here is what lets the Coordinator stay ignorant of
+	 * env.AI: the seam stays narrow instead of spraying try/catch downstream.
+	 */
 	private async callModel(
 		messages: { role: string; content: string }[],
-	): Promise<string> {
-		const output = await this.ai.run(MODEL, {
-			messages,
-			response_format: {
-				type: "json_schema",
-				json_schema: PARSE_RESULT_JSON_SCHEMA,
-			},
-			max_tokens: MAX_TOKENS,
-		});
-
-		if (typeof output === "string") return output;
-
-		// `.response` carries the model's payload, but its type depends on the
-		// runtime: with response_format json_schema the binding now hands back
-		// an already-parsed object, while plain-text calls (and the shape this
-		// code was originally written against) return a JSON string. Both are
-		// normalized to a string here so tryParseResult stays the single
-		// JSON.parse + Zod gate. Only accepting the string form silently
-		// produced "" for every live call, which drove the whole parse path
-		// into UNKNOWN_REPHRASE_RESULT — the model was answering correctly the
-		// entire time.
-		if (output && typeof output === "object" && "response" in output) {
-			const { response } = output;
-			if (typeof response === "string") return response;
-			if (response !== null && response !== undefined) {
-				return JSON.stringify(response);
-			}
+	): Promise<NormalizedAiResponse> {
+		let output: unknown;
+		try {
+			output = await this.ai.run(MODEL, {
+				messages,
+				response_format: {
+					type: "json_schema",
+					json_schema: PARSE_RESULT_JSON_SCHEMA,
+				},
+				max_tokens: MAX_TOKENS,
+			});
+		} catch {
+			return { kind: "unrecognized" };
 		}
-		return "";
+
+		return normalizeAiResponse(output);
 	}
 }
