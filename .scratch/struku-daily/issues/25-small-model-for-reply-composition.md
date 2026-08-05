@@ -416,3 +416,37 @@ paling lambat dari semuanya. Dicoret.
   ringkasan percakapan yang menumpuk sepanjang hari (15 butir 5–6) lebih panjang.
 - **Satu prompt, satu giliran.** Probe menguji balasan commit — jalur paling ramai,
   tapi bukan satu-satunya. Sapaan, klarifikasi, dan kegagalan belum diuji.
+
+## Addendum run-5 (2026-08-05): pemenang bertahan, tapi 8B **tidak konsisten**
+
+Probe ini ikut jalan saat probe isolasi tiket
+[29](29-parse-schema-5024.md) dieksekusi. Angkanya:
+
+| Model | Latensi | `json_schema` | Slot |
+|---|---|---|---|
+| `gemma-sea-lion-v4-27b-it` | **1.482ms** | ✅ | ketiganya utuh, nada kasual |
+| `llama-3.1-8b-instruct-fast` | **801ms** | ✅ | **ketiganya utuh**, nada kaku (*"Anda telah merekam"*) |
+| `llama-3.3-70b-instruct-fp8-fast` | 3.725ms | ✅ | **menjatuhkan `{category}`** (menulis *"warteg"*) |
+| `glm-4.7-flash` | 7.163ms | ❌ | reasoning model, `content: null`, 1.775 char di `.reasoning` |
+
+**Keputusan tidak berubah:** SEA-LION tetap satu-satunya yang punya nol pelanggaran
+slot **dan** nada kasual, konsisten di tiga run.
+
+**Yang berubah — dan ini menguatkan, bukan melemahkan, § Yang masih terbuka butir 1:**
+8B kali ini **utuh ketiga slotnya**, padahal run-1/run-3 mencatat ia menjatuhkan
+`{category}` *dan* `{total_harian}`. Prompt, slot, dan model identik. Jadi
+pelanggaran slot **tidak deterministik** — model yang sama bisa lolos di satu
+panggilan dan menjatuhkan slot di panggilan berikutnya.
+
+Konsekuensinya tajam: **memilih model tidak akan pernah menyelesaikan masalah slot.**
+Verifikasi slot sebelum kirim berhenti jadi sabuk pengaman dan jadi **syarat**. Kalau
+8B dipilih semata karena 801ms (1,8× lebih cepat dari SEA-LION), ia akan menjatuhkan
+slot secara acak di produksi — dan kalimatnya tetap terlihat wajar.
+
+Catatan angka: latensi SEA-LION 1.390ms → 1.482ms (stabil); 70B 3.396ms → 3.725ms.
+GLM tetap dicoret dengan alasan yang sama.
+
+⚠️ `test/live/reply-composer-probe.test.ts` **belum dihapus** — angkanya sudah
+tercatat di sini, tapi keputusan menghapusnya diserahkan ke pemilik repo karena ia
+satu-satunya loop hidup yang mengukur pelanggaran slot, dan temuan non-determinisme
+di atas justru menaikkan nilainya.

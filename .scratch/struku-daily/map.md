@@ -108,6 +108,17 @@ yang bikin dia berhenti.*
     berarti bot **tidak bisa dipakai sama sekali** sampai saat itu — padahal
     destination map ini justru *"dipakai harian"*. **Keputusan pemilik repo, bukan
     agent** — tercatat di butir 3 tiket 29, jangan diputuskan sepihak.
+    ✅ **Probe isolasi dijalankan 2026-08-05 (run-5): penyebabnya `type` sebagai
+    array** (`type: ["string","null"]`), **bukan** `enum` dan **bukan** `null` di
+    dalam `enum` — tersangka utama yang ditulis semula **salah**. S4 ditolak tanpa
+    memuat `enum` sama sekali; S7 ditolak setelah `null` dibuang dari `enum`. Lima
+    field `PARSE_RESULT_JSON_SCHEMA` memakai konstruk itu. Batasannya **tidak
+    terdokumentasi** — halaman JSON Mode dibaca langsung sesi ini (kanal `WebFetch`
+    terbuka di lokal) dan tidak memuat daftar keyword yang didukung. Bonus: **S4
+    ditolak setelah 28s**, jadi timeout 20s di kontrak kemungkinan `5024` yang telat,
+    bukan panggilan menggantung. Probe dihapus. **Tiket 29 tetap open** — pilihan
+    perbaikannya (buang nullability vs pindah ke `json_object`+Zod) dua-duanya
+    revisi ADR-0005 §3 dan **masih HITL**.
   - **Kondisi produksi selama freeze:** versi terpasang `7436f2b5`, dan bot
     **masih menjebak di mode edit** ([24](issues/24-edit-mode-escape.md)).
     Tambalan cepat ditawarkan dan **ditolak** — konsisten dengan freeze.
