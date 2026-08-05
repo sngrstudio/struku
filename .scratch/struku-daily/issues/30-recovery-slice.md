@@ -48,17 +48,76 @@ menyentuh [20](20-stats-refresh-trigger.md).
 
 ## Definition of done
 
-- [ ] Empat butir di atas dibangun lewat `/tdd`, ditutup `/code-review`.
-- [ ] `npm test` hijau (baseline 77/77 + test baru), `tsc` bersih, `eslint` 0 error.
-- [ ] `npm run test:live` dijalankan dan **`text-parser-contract.test.ts` lolos** —
+- [x] Empat butir di atas dibangun lewat `/tdd`, ditutup `/code-review`.
+- [x] `npm test` hijau (baseline 77/77 + test baru), `tsc` bersih, `eslint` 0 error.
+- [x] `npm run test:live` dijalankan dan **`text-parser-contract.test.ts` lolos** —
       ini pembuktian sebenarnya bahwa `5024` hilang. ⚠️ Naikkan `testTimeout`-nya
       ke 45s lebih dulu: probe #1 melihat `5024` tiba di **28s**, jadi dinding 20s
       yang sekarang menyamarkan penolakan sebagai timeout.
 - [ ] `wrangler deploy` **sekali**, lalu `wrangler tail` saat mengirim transaksi
       sungguhan dari Telegram. Guardrail miniflare ≠ workerd — wajib, bukan opsional.
-- [ ] Setelah normalisasi pindah ke produksi:
+- [x] Setelah normalisasi pindah ke produksi:
       `test/live/reply-composer-probe.test.ts` boleh dihapus (sampai saat itu ia
       memegang satu-satunya salinan logika yang benar).
+
+## Kemajuan 2026-08-05 — dibangun & terbukti lokal, **deploy belum**
+
+Commit [`a9d5efc`](#) (empat butir) + [`bd6ec02`](#) (temuan `/code-review`).
+
+### Yang terbukti
+
+| Bukti | Hasil |
+|---|---|
+| `npm test` | **97/97** (baseline 77 + 20 test baru) |
+| `tsc -b --force` | exit 0 |
+| `eslint .` | 0 error (2 warning lama di `worker-configuration.d.ts`) |
+| `npm run test:live` | **7/7 LOLOS**, dua run terpisah (49s dan 39s) |
+
+**`5024` hilang.** Tiga run konklusif sebelumnya 7/7 gagal; sekarang 7/7 lolos
+terhadap `env.AI` sungguhan lewat `remoteBindings: true`. `testTimeout` sudah
+dinaikkan 20s → 45s dan **tidak ada satu pun test yang mendekati dindingnya** —
+jadi gejala kedua (timeout 20s) memang `5024` yang telat, seperti dugaan run-5.
+
+### Bentuk yang dipilih untuk butir 2
+
+`TextParser.parse` balikin **discriminated union** `ParseOutcome`
+(`{kind:"parsed",result}` | `{kind:"call_failed"}`), bukan sentinel value —
+supaya compiler, bukan konvensi, yang menjaga kedua kelas kegagalan tetap
+terpisah. Dipilih pemilik repo dari tiga opsi.
+
+### Keputusan implementasi yang tidak tertulis di tiket
+
+- **`{ response: null }` sekarang = kegagalan panggilan**, dulu
+  `UNKNOWN_REPHRASE_RESULT`. Key ada tapi nol payload = tidak ada payload; itu
+  persis mode runtuh-jadi-`""` yang dilarang keputusan pertanyaan 5.
+- **`{ response: "" }` tetap di jalur parse.** Bentuknya dikenal, isinya kosong —
+  itu model yang diam, bukan binding yang bicara dialek asing. Retry ADR-0005 §7
+  tidak tersentuh.
+- **Kegagalan panggilan dicatat `console.error`**, terpisah antara `throw` dan
+  bentuk tak dikenal. Alert produksi ditolak sadar, jadi `wrangler tail`
+  satu-satunya tempat ini terlihat.
+
+### ⚠️ Temuan di luar cakupan — jangan hilang
+
+**`tsc` tidak pernah meng-cover `test/`.** Root `tsconfig.json` cuma mereferensi
+`app`/`node`/`worker`; `test/tsconfig.json` ada tapi **tidak terdaftar**.
+Akibatnya `test/live/text-parser-contract.test.ts` yang rusak oleh perubahan
+signature `parse()` lolos `tsc` **dan** lolos `npm test` (test/live dikecualikan)
+— ketahuan hanya karena `test:live` dijalankan. Kelasnya persis yang dikeluhkan
+pertanyaan 4: pengaman yang terlihat ada padahal tidak.
+Sengaja **tidak** diperbaiki di sini — di luar "persis tiga, tidak lebih", dan
+menyalakannya bisa memunculkan error tipe di seluruh suite tepat sebelum deploy.
+
+**Registry `RESPONSE_FORMAT_SCHEMAS` menjaga skema yang _terdaftar_, bukan yang
+_dikirim_.** Cukup untuk hari ini (satu panggilan, satu skema), tapi panggilan-2
+yang mengirim literal tanpa mendaftarkannya lolos tanpa penjagaan. Celah ini
+harus ditutup saat panggilan-2 mendarat.
+
+### Yang tersisa: satu langkah, dan ia HITL
+
+`wrangler deploy` **diblokir classifier harness** di sesi ini, jadi deploy +
+`wrangler tail` dikerjakan pemilik repo. Tiket sengaja **tetap `claimed`, tidak
+resolved** — DoD-nya belum lunas, dan guardrail miniflare ≠ workerd belum dibayar.
 
 ## Catatan
 
