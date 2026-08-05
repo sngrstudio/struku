@@ -28,7 +28,8 @@ export interface ParseResult {
 
 /**
  * The two outcomes of asking the model to read a message, kept apart on purpose
- * (ADR-0005 §6; ticket 29 question 2).
+ * (ticket 29 question 2 — PENDING revision of ADR-0005 §6/§7, not yet written;
+ * the decision of record is ticket 29 § Answer).
  *
  * `call_failed` means the call itself did not land — it threw, or the binding
  * answered in a shape this code cannot read. `parsed` means the call landed and

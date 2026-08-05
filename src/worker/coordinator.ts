@@ -281,7 +281,8 @@ export class Coordinator extends Agent<Env> {
 		const outcome = await this.textParser.parse(message.text, locale);
 
 		// A call that never landed is not a message we failed to understand
-		// (ADR-0005 §6). The catch itself lives at the TextParser boundary, so
+		// (ticket 29 question 2; ADR-0005 §6 revision pending). The catch itself
+		// lives at the TextParser boundary, so
 		// this stays a branch on an outcome rather than a try/catch here — the
 		// Coordinator never needs to know env.AI exists.
 		if (outcome.kind === 'call_failed') {

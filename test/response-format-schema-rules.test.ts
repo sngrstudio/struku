@@ -58,9 +58,11 @@ function findViolations(node: unknown, path = "$"): Violation[] {
 }
 
 describe("response_format schema rules", () => {
-	// Every production schema, both calls. Ticket 29 question 5 makes this bind
-	// call-2 too: its schema is two plain strings today and therefore safe, but
-	// the rule has to be written to hold as that schema grows.
+	// Every REGISTERED schema. Ticket 29 question 4 asks this to bind both
+	// calls; call-2 does not exist yet, so what is registered is the honest
+	// limit of the guard: it checks the schemas listed, not the schemas sent.
+	// A future call-2 that passes a schema literal without registering it here
+	// is guarded by nothing — that is the gap to close when call-2 lands.
 	for (const [name, schema] of Object.entries(RESPONSE_FORMAT_SCHEMAS)) {
 		it(`${name} is strict JSON Schema`, () => {
 			expect(findViolations(schema)).toEqual([]);

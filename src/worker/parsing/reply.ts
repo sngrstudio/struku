@@ -79,8 +79,9 @@ const REPHRASE_REPLY: Record<Locale, string> = {
 	en: "Hmm, I didn't quite get that. Could you rephrase?",
 };
 
-// ADR-0005 §6: "the system is having trouble" is a DIFFERENT reply from "I
-// didn't understand you" (ticket 15 butir 4, ticket 29 question 2). The
+// "The system is having trouble" is a DIFFERENT reply from "I didn't
+// understand you" (ticket 15 butir 4, ticket 29 question 2 — a PENDING revision
+// of ADR-0005 §6; the ADR does not say this yet). The
 // distinction is the point — a rephrase prompt for a system fault sends the
 // user off rewriting a message that was never at fault, failing again, and
 // blaming themselves.

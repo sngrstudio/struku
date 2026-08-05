@@ -10,7 +10,8 @@ export type NormalizedAiResponse =
 
 /**
  * The single response-normalization boundary for every Workers AI call
- * (ADR-0005 §7; ticket 29 question 5). One implementation, shared by call-1
+ * (ticket 29 question 5 — a PENDING revision of ADR-0005 §7, not yet written).
+ * One implementation, shared by call-1
  * (parsing) and call-2 (reply composition) — two copies would drift, and the
  * drift is invisible until production stops recording.
  *

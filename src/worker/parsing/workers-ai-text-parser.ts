@@ -9,7 +9,14 @@ import type { ParseOutcome, ParseResult, TextParser } from "./types";
 const MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 const MAX_TOKENS = 512; // ADR-0005 §2: 256 default truncates.
 
-const CALL_FAILED: ParseOutcome = { kind: "call_failed" };
+/** What one `ai.run` came back as: a payload to parse, or a call that failed. */
+type ModelCallOutcome =
+	| { kind: "text"; text: string }
+	| { kind: "call_failed" };
+
+// Narrow on purpose — assignable to both ModelCallOutcome and ParseOutcome, so
+// a failed call reads the same at the call site and at the parse boundary.
+const CALL_FAILED = { kind: "call_failed" } as const;
 
 export const UNKNOWN_REPHRASE_RESULT: ParseResult = {
 	intent: "unknown",
@@ -65,7 +72,7 @@ export class WorkersAiTextParser implements TextParser {
 		];
 
 		const first = await this.callModel(messages);
-		if (first.kind === "unrecognized") return CALL_FAILED;
+		if (first.kind === "call_failed") return CALL_FAILED;
 		const firstResult = tryParseResult(first.text);
 		if (firstResult) return { kind: "parsed", result: firstResult };
 
@@ -80,7 +87,7 @@ export class WorkersAiTextParser implements TextParser {
 					"Your previous reply was not valid JSON matching the required schema. Reply again with ONLY the JSON object.",
 			},
 		]);
-		if (retry.kind === "unrecognized") return CALL_FAILED;
+		if (retry.kind === "call_failed") return CALL_FAILED;
 		const retryResult = tryParseResult(retry.text);
 		if (retryResult) return { kind: "parsed", result: retryResult };
 
@@ -88,7 +95,7 @@ export class WorkersAiTextParser implements TextParser {
 	}
 
 	/**
-	 * One model call, reduced to a payload or "unrecognized". This is the ONLY
+	 * One model call, reduced to a payload or a call failure. This is the ONLY
 	 * place in the parse path that touches env.AI, so it is also the only place
 	 * that has to know a call can fail: `ai.run` throws (5024, network, 5xx,
 	 * model withdrawn) and nothing further up the message path catches — the
@@ -97,10 +104,16 @@ export class WorkersAiTextParser implements TextParser {
 	 *
 	 * Keeping the catch here is what lets the Coordinator stay ignorant of
 	 * env.AI: the seam stays narrow instead of spraying try/catch downstream.
+	 *
+	 * A throw and an unreadable response shape are two different diagnoses, and
+	 * they are logged apart even though they collapse to one class for the user
+	 * — with production alerts deliberately declined (ticket 29 question 4),
+	 * `wrangler tail` is the only place either becomes visible, and a silent
+	 * catch would rebuild the very blind spot this change exists to close.
 	 */
 	private async callModel(
 		messages: { role: string; content: string }[],
-	): Promise<NormalizedAiResponse> {
+	): Promise<ModelCallOutcome> {
 		let output: unknown;
 		try {
 			output = await this.ai.run(MODEL, {
@@ -111,10 +124,19 @@ export class WorkersAiTextParser implements TextParser {
 				},
 				max_tokens: MAX_TOKENS,
 			});
-		} catch {
-			return { kind: "unrecognized" };
+		} catch (error) {
+			console.error("parse: env.AI.run threw", error);
+			return CALL_FAILED;
 		}
 
-		return normalizeAiResponse(output);
+		const normalized: NormalizedAiResponse = normalizeAiResponse(output);
+		if (normalized.kind === "unrecognized") {
+			console.error(
+				"parse: unrecognized env.AI response shape",
+				JSON.stringify(output)?.slice(0, 300),
+			);
+			return CALL_FAILED;
+		}
+		return normalized;
 	}
 }
