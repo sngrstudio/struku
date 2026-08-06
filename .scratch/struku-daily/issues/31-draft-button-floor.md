@@ -1,7 +1,7 @@
 # 31 — Slice lantai tombol draft
 
 Type: task
-Status: open
+Status: claimed
 Blocked by: —
 
 ## Question

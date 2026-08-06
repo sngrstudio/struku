@@ -34,6 +34,21 @@ export type DraftDecision =
 	| { kind: "retry"; action: OutboundAction }
 	| { kind: "fall_through" }; // not a draft-control reply — start a new draft instead
 
+/**
+ * Ticket 24 butir 3: any reply sent while the draft is STILL PENDING carries
+ * the confirm options, so the way out is always on screen. The production trap
+ * was not a wrong branch — it was a reply that happened to be `kind: "text"`,
+ * which strips the buttons and leaves the user with no visible escape but a
+ * 30-minute timeout.
+ *
+ * Deliberately NOT used by the committed and discarded replies: the draft is
+ * gone by then, and buttons would point at nothing.
+ * `test/draft-pending-reply-options.test.ts` is the guard.
+ */
+function draftPendingReply(text: string, locale: Locale): OutboundAction {
+	return { kind: "choice", text, options: CONFIRM_PROMPT_OPTIONS[locale] };
+}
+
 function draftConfirmPrompt(draft: PendingDraft, locale: Locale): OutboundAction {
 	const summary = transactionSummaryLine(
 		draft.txnType,
@@ -100,7 +115,7 @@ export function decideDraftCommand(
 	if (command === "edit") {
 		return {
 			kind: "start_edit",
-			action: { kind: "text", text: DRAFT_COPY[locale].editWhichField },
+			action: draftPendingReply(DRAFT_COPY[locale].editWhichField, locale),
 		};
 	}
 	// confirm — the actual ledger write is I/O the caller performs; this only
@@ -124,32 +139,32 @@ export function decideEditValue(
 
 	if (editState === "choosing") {
 		const field = parseEditField(text);
-		if (!field) return { kind: "retry", action: { kind: "text", text: copy.editFieldRetry } };
+		if (!field) return { kind: "retry", action: draftPendingReply(copy.editFieldRetry, locale) };
 		return {
 			kind: "set_edit_field",
 			field,
-			action: { kind: "text", text: EDIT_FIELD_PROMPTS[field](locale) },
+			action: draftPendingReply(EDIT_FIELD_PROMPTS[field](locale), locale),
 		};
 	}
 
 	if (editState === "amount") {
 		const amount = parseEditAmount(text);
-		if (amount === null) return { kind: "retry", action: { kind: "text", text: copy.askNewAmount } };
+		if (amount === null) return { kind: "retry", action: draftPendingReply(copy.askNewAmount, locale) };
 		return { kind: "update_field", field: "amount", value: amount, action: draftConfirmPrompt({ ...draft, amount }, locale) };
 	}
 	if (editState === "category") {
 		const category = parseEditCategory(text);
-		if (!category) return { kind: "retry", action: { kind: "text", text: copy.askNewCategory } };
+		if (!category) return { kind: "retry", action: draftPendingReply(copy.askNewCategory, locale) };
 		return { kind: "update_field", field: "category", value: category, action: draftConfirmPrompt({ ...draft, category }, locale) };
 	}
 	if (editState === "date") {
 		const date = parseEditDate(text);
-		if (!date) return { kind: "retry", action: { kind: "text", text: copy.askNewDate } };
+		if (!date) return { kind: "retry", action: draftPendingReply(copy.askNewDate, locale) };
 		return { kind: "update_field", field: "date", value: date, action: draftConfirmPrompt({ ...draft, date }, locale) };
 	}
 	// direction
 	const direction = parseEditDirection(text);
-	if (!direction) return { kind: "retry", action: { kind: "text", text: copy.askNewDirection } };
+	if (!direction) return { kind: "retry", action: draftPendingReply(copy.askNewDirection, locale) };
 	return {
 		kind: "update_field",
 		field: "txn_type",
