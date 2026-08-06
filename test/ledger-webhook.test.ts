@@ -532,3 +532,75 @@ describe("pending draft, confirm/edit/discard, double-entry commit (ticket 13)",
 		expect(lines.every((l) => l.currency === "USD")).toBe(true);
 	});
 });
+
+// Ticket 31 / ticket 24 butir 3: THE FLOOR THAT CANNOT TRAP.
+//
+// The unit guard (test/draft-pending-reply-options.test.ts) proves the pure
+// decisions carry options. It cannot prove the two things that actually decide
+// whether the user escapes, because both live above draft/logic.ts:
+//
+//   1. a tapped button ARRIVES as text (ADR-0004 §2: callback_data = option.id)
+//      and must still be honoured while an edit is in progress, and
+//   2. the replies the Coordinator composes itself — non-text messages, a
+//      failed model call, an unparsed message that falls through — are sent
+//      while the SAME draft is still pending.
+//
+// A visible button that does nothing is worse than no button: it reads as an
+// escape and isn't. Found by /code-review, not by the unit test.
+describe("draft escape hatch survives every reply while the draft is pending (ticket 31)", () => {
+	it("tapping [Batal] while an edit is in progress actually discards", async () => {
+		const chatId = 991001;
+		const userId = await seedOnboardedUser(String(chatId));
+		await injectCannedResult(userId, CLEAN_EXPENSE);
+
+		await send(chatId, "warteg 25rb");
+		await send(chatId, "edit"); // now editState = 'choosing'
+		const reply = await send(chatId, "discard"); // the [Batal] tap
+
+		expect(reply.text).not.toContain("jumlah, kategori");
+		const { results } = await env.DB.prepare(
+			`SELECT id FROM journal_entries WHERE user_id = ?`,
+		)
+			.bind(userId)
+			.all();
+		expect(results).toHaveLength(0);
+
+		// And the draft is really gone: a fresh message starts a NEW draft
+		// rather than being read as an edit value.
+		const after = await send(chatId, "kopi 10rb");
+		expect(after.options?.map((o) => o.id)).toContain("discard");
+	});
+
+	it("an unparsed message keeps the buttons — ticket 24's trap, outside edit mode", async () => {
+		const chatId = 991002;
+		const userId = await seedOnboardedUser(String(chatId));
+		await injectCannedResult(userId, CLEAN_EXPENSE);
+		await send(chatId, "warteg 25rb");
+
+		// Draft still pending; this message is neither a command nor a parse.
+		await injectCannedResult(userId, {
+			...CLEAN_EXPENSE,
+			intent: "unknown",
+			txn_type: null,
+			amount: null,
+			category: null,
+		});
+		const reply = await send(chatId, "tidak jadi deh");
+
+		expect(reply.options?.map((o) => o.id)).toContain("discard");
+	});
+
+	it("a failed model call keeps the buttons", async () => {
+		const chatId = 991003;
+		const userId = await seedOnboardedUser(String(chatId));
+		await injectCannedResult(userId, CLEAN_EXPENSE);
+		await send(chatId, "warteg 25rb");
+
+		await injectFakeTextParser(env.Coordinator, userId, async () => ({
+			kind: "call_failed",
+		}));
+		const reply = await send(chatId, "hmmm");
+
+		expect(reply.options?.map((o) => o.id)).toContain("discard");
+	});
+});

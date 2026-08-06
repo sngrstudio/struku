@@ -82,15 +82,14 @@ yang perlu dilahirkan.
 `env.AI`. Guardrail miniflare ≠ workerd tetap berlaku lewat butir 5 (jalur
 `fetch` Telegram), tapi seam itu sudah terbukti di produksi.
 
-## 🧊 Prasyarat yang BELUM diberikan
+## 🧊 Prasyarat — ✅ **DIBERIKAN 2026-08-05**
 
-Tiket ini **tidak boleh dimulai** sebelum pemilik repo memberikan **dua** hal,
-dan keduanya keputusan terpisah dari [24](24-edit-mode-escape.md):
+Pemilik repo memberikan **keduanya** sebelum slice ini dimulai:
 
-1. **Pengecualian freeze #2.** Jatah sekarang **nol** — #1 habis terpakai di
-   [30](30-recovery-slice.md).
-2. **Override eksekusi.** Map kembali planning-only setelah 30; tanpa override,
-   tidak ada yang boleh dibangun.
+1. ✅ **Pengecualian freeze #2** (jatah sebelumnya nol — #1 habis terpakai di
+   [30](30-recovery-slice.md)). **Jatah kembali nol setelah slice ini.**
+2. ✅ **Override eksekusi.** Berlaku untuk slice ini saja; map kembali
+   planning-only setelah selesai.
 
 `wrangler deploy` diblokir classifier harness untuk agent — **pemilik repo yang
 menjalankannya**.
@@ -102,3 +101,58 @@ Semua yang butuh panggilan-1, yaitu [24](24-edit-mode-escape.md) butir 1 dan 2
 Keduanya dititipkan ke implementasi [15](15-conversational-surface.md) bersama
 substansi yang dulu bernama 23A. **Jangan tarik ke sini** — slice ini bernilai
 justru karena tidak menyentuh AI.
+
+## Kemajuan (2026-08-05)
+
+**Lingkupnya tujuh di `draft/logic.ts`, plus empat hal yang `/code-review`
+temukan dan slice ini ikut tutup.** Estimasi sembilan di § Ruang lingkup salah
+di kedua arah: dua dikecualikan dengan benar, tiga terlewat di luar
+`draft/logic.ts`, dan satu jalan keluar ternyata mati.
+
+### Yang dibangun
+
+1. **Tujuh balasan `draft/logic.ts`** `text` → `choice`. `committedReply` dan
+   balasan `discard` **dikecualikan** — draft sudah hilang; `commitFailed` juga,
+   alasan sama. Dugaan di § Ruang lingkup terbukti benar.
+2. 🔴 **Tombolnya ternyata MATI, dan itu temuan paling serius slice ini.**
+   ADR-0004 §2 menormalkan tap jadi `{kind:'text', text:<option.id>}`, dan
+   `coordinator.ts` merutekan ke `decideEditValue` selama `editState` aktif —
+   yang tak pernah memanggil `parseDraftCommand`. Jadi `[Batal]` yang baru
+   dipasang mengirim teks `"discard"` → `parseEditField` → `null` → `retry`.
+   **Jalan keluar yang dipajang tapi tidak berfungsi lebih buruk daripada tidak
+   ada.** Diperbaiki: command menang atas jalur edit-value.
+   ⚠️ Ini juga menjawab sebagian [24](24-edit-mode-escape.md) butir 2 **tanpa
+   model**: `[Konfirmasi]` saat mode edit **adalah** "tetap sama" yang
+   deterministik.
+3. **Tiga balasan ber-draft-hidup di luar `draft/logic.ts`** ikut ditutup lewat
+   `keepEscapeHatch`: pesan non-teks (dipindah ke bawah pembacaan draft),
+   `systemTroubleReply`, dan `buildParseReply` di jalur `fall_through` — yang
+   terakhir **bentuk jebakan tiket 24 persis, di luar mode edit**.
+
+### Penjaganya
+
+Unit (`test/draft-pending-reply-options.test.ts`) + integrasi di
+`test/ledger-webhook.test.ts` — yang kedua wajib, karena tap tombol hanya nyata
+di seam webhook dan tiga balasan di atas hidup di `coordinator.ts`.
+
+⚠️ **Batas penjaga yang harus diketahui:** klasifikasi eksaustif memakai
+`Record<DraftDecision["kind"], …>`, yang **tidak dicek `npx tsc -b`** — root
+`tsconfig.json` tidak mereferensi `test/`. Diverifikasi dengan menambah kind
+percobaan: `tsc -b` exit 0, `tsc -p test/tsconfig.json` TS2741. Sampai celah itu
+diputuskan (fogged di `map.md`), jalankan perintah kedua manual setelah menyentuh
+`DraftDecision`.
+
+### Belum: DoD 5 dan 6
+
+Deploy nyata, `wrangler tail`, putaran manual Telegram, dan verifikasi produksi
+[22](22-persist-entry-description.md) + [23B](23-draft-confirmation-surface.md)
+**belum dikerjakan** — `wrangler deploy` diblokir classifier untuk agent, dan
+verifikasi Telegram butuh pemilik repo mengetik sendiri.
+
+### Ketegangan kosakata yang tidak diputuskan di sini
+
+`CONTEXT.md` mendefinisikan **choice prompt** sebagai *"pesan yang meminta user
+memilih satu dari set opsi tetap"*. Balasan seperti *"Jumlahnya jadi berapa?"*
+sekarang berbentuk `choice` tapi memintanya **teks bebas** — opsinya jalan
+keluar, bukan jawaban. Istilahnya jadi meregang. Ini pekerjaan
+`/domain-modeling`, bukan slice eksekusi; dicatat, tidak diputuskan.

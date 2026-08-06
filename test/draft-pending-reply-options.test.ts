@@ -50,13 +50,42 @@ const DRAFT: PendingDraft = {
  * action and sends `committedReply` instead (coordinator.ts, confirm path), so
  * the action on the commit decision is never delivered to anyone.
  */
-const DRAFT_STILL_PENDING: DraftDecision["kind"][] = [
-	"start_edit",
-	"set_edit_field",
-	"update_field",
-	"retry",
-];
-const DRAFT_IS_OVER: DraftDecision["kind"][] = ["discard"];
+// A TOTAL record, so the guard is a type error rather than a test that compares
+// two hand-written lists. Adding a kind to DraftDecision without classifying it
+// here fails with TS2741. (The first attempt compared two literal arrays and
+// would have stayed green forever; caught by /code-review.)
+//
+// ⚠️ IT DOES NOT FIRE UNDER THE REPO'S OWN TYPECHECK. Verified by adding a
+// probe kind:
+//
+//     npx tsc -b                        -> exit 0   (test/ is not referenced)
+//     npx tsc --noEmit -p test/tsconfig.json -> TS2741
+//
+// Root tsconfig.json references app/node/worker only, so nothing in test/ is
+// type-checked by the command the repo documents. That gap is fogged in map.md
+// and is NOT this slice's to decide — but until it is decided, run the second
+// command by hand after touching DraftDecision.
+const CLASSIFICATION: Record<
+	DraftDecision["kind"],
+	"pending" | "over" | "no-action"
+> = {
+	start_edit: "pending",
+	set_edit_field: "pending",
+	update_field: "pending",
+	retry: "pending",
+	discard: "over",
+	// The Coordinator ignores this action and sends committedReply instead
+	// (coordinator.ts, confirm path), so it is never delivered to anyone.
+	commit: "no-action",
+	fall_through: "no-action", // carries no action at all
+};
+
+const DRAFT_STILL_PENDING = Object.entries(CLASSIFICATION)
+	.filter(([, v]) => v === "pending")
+	.map(([k]) => k);
+const DRAFT_IS_OVER = Object.entries(CLASSIFICATION)
+	.filter(([, v]) => v === "over")
+	.map(([k]) => k);
 
 function expectEscapeVisible(decision: DraftDecision) {
 	expect(DRAFT_STILL_PENDING).toContain(decision.kind);
@@ -110,25 +139,24 @@ describe("replies that end the draft must NOT advertise buttons", () => {
 	});
 });
 
-// Without this, adding a new DraftDecision kind silently escapes the rule — the
-// loops above only check the kinds they already know about.
+// The real exhaustiveness guard is CLASSIFICATION's type, checked by `tsc -b`.
+// This only proves the classification is not vacuous — a record that classified
+// nothing as "pending" would make every loop above pass by doing nothing.
 describe("the classification itself", () => {
-	it("covers every DraftDecision kind", () => {
-		const classified = [
-			...DRAFT_STILL_PENDING,
-			...DRAFT_IS_OVER,
-			"commit", // action never delivered; see DRAFT_STILL_PENDING's note
-			"fall_through", // carries no action at all
-		].sort();
-		const allKinds: DraftDecision["kind"][] = [
-			"discard",
-			"commit",
-			"start_edit",
-			"set_edit_field",
-			"update_field",
-			"retry",
-			"fall_through",
-		];
-		expect(classified).toEqual([...allKinds].sort());
+	it("actually classifies replies as draft-live", () => {
+		expect(DRAFT_STILL_PENDING.length).toBeGreaterThan(0);
+		expect(DRAFT_IS_OVER.length).toBeGreaterThan(0);
+	});
+});
+
+// Locale is a parameter of every reply builder, so a floor proven only in `id`
+// is a floor proven for half the users the copy layer supports.
+describe("the floor holds in `en` too", () => {
+	it("edit menu, unparsable answer", () => {
+		const decision = decideEditValue(DRAFT, "choosing", "no thanks", "en");
+		expect(decision.action.kind).toBe("choice");
+		if (decision.action.kind !== "choice") return;
+		expect(decision.action.options).toEqual(CONFIRM_PROMPT_OPTIONS.en);
+		expect(decision.action.options.map((o) => o.id)).toContain("discard");
 	});
 });

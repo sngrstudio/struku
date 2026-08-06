@@ -45,8 +45,26 @@ export type DraftDecision =
  * gone by then, and buttons would point at nothing.
  * `test/draft-pending-reply-options.test.ts` is the guard.
  */
-function draftPendingReply(text: string, locale: Locale): OutboundAction {
+function replyWithEscapeHatch(text: string, locale: Locale): OutboundAction {
 	return { kind: "choice", text, options: CONFIRM_PROMPT_OPTIONS[locale] };
+}
+
+/**
+ * Attaches the escape hatch to a reply the Coordinator composed itself — the
+ * non-text acknowledgement, the model-trouble copy, the "I didn't understand"
+ * copy. Those are sent while the SAME draft is still pending (fall_through does
+ * not delete it), so without this they reproduce ticket 24's trap outside edit
+ * mode. Already-choice replies pass through untouched.
+ */
+export function keepEscapeHatch(
+	action: OutboundAction,
+	locale: Locale,
+	pendingDraft: PendingDraft | null,
+): OutboundAction {
+	if (!pendingDraft) return action;
+	return action.kind === "choice"
+		? action
+		: replyWithEscapeHatch(action.text, locale);
 }
 
 function draftConfirmPrompt(draft: PendingDraft, locale: Locale): OutboundAction {
@@ -58,11 +76,10 @@ function draftConfirmPrompt(draft: PendingDraft, locale: Locale): OutboundAction
 		draft.date,
 		locale,
 	);
-	return {
-		kind: "choice",
-		text: `${summary} ${DRAFT_COPY[locale].confirmQuestion}`,
-		options: CONFIRM_PROMPT_OPTIONS[locale],
-	};
+	return replyWithEscapeHatch(
+		`${summary} ${DRAFT_COPY[locale].confirmQuestion}`,
+		locale,
+	);
 }
 
 /**
@@ -115,7 +132,7 @@ export function decideDraftCommand(
 	if (command === "edit") {
 		return {
 			kind: "start_edit",
-			action: draftPendingReply(DRAFT_COPY[locale].editWhichField, locale),
+			action: replyWithEscapeHatch(DRAFT_COPY[locale].editWhichField, locale),
 		};
 	}
 	// confirm — the actual ledger write is I/O the caller performs; this only
@@ -139,32 +156,32 @@ export function decideEditValue(
 
 	if (editState === "choosing") {
 		const field = parseEditField(text);
-		if (!field) return { kind: "retry", action: draftPendingReply(copy.editFieldRetry, locale) };
+		if (!field) return { kind: "retry", action: replyWithEscapeHatch(copy.editFieldRetry, locale) };
 		return {
 			kind: "set_edit_field",
 			field,
-			action: draftPendingReply(EDIT_FIELD_PROMPTS[field](locale), locale),
+			action: replyWithEscapeHatch(EDIT_FIELD_PROMPTS[field](locale), locale),
 		};
 	}
 
 	if (editState === "amount") {
 		const amount = parseEditAmount(text);
-		if (amount === null) return { kind: "retry", action: draftPendingReply(copy.askNewAmount, locale) };
+		if (amount === null) return { kind: "retry", action: replyWithEscapeHatch(copy.askNewAmount, locale) };
 		return { kind: "update_field", field: "amount", value: amount, action: draftConfirmPrompt({ ...draft, amount }, locale) };
 	}
 	if (editState === "category") {
 		const category = parseEditCategory(text);
-		if (!category) return { kind: "retry", action: draftPendingReply(copy.askNewCategory, locale) };
+		if (!category) return { kind: "retry", action: replyWithEscapeHatch(copy.askNewCategory, locale) };
 		return { kind: "update_field", field: "category", value: category, action: draftConfirmPrompt({ ...draft, category }, locale) };
 	}
 	if (editState === "date") {
 		const date = parseEditDate(text);
-		if (!date) return { kind: "retry", action: draftPendingReply(copy.askNewDate, locale) };
+		if (!date) return { kind: "retry", action: replyWithEscapeHatch(copy.askNewDate, locale) };
 		return { kind: "update_field", field: "date", value: date, action: draftConfirmPrompt({ ...draft, date }, locale) };
 	}
 	// direction
 	const direction = parseEditDirection(text);
-	if (!direction) return { kind: "retry", action: draftPendingReply(copy.askNewDirection, locale) };
+	if (!direction) return { kind: "retry", action: replyWithEscapeHatch(copy.askNewDirection, locale) };
 	return {
 		kind: "update_field",
 		field: "txn_type",

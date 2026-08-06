@@ -9,10 +9,12 @@ import {
 } from './onboarding/types';
 import {
 	committedReply,
+	keepEscapeHatch,
 	decideDraftCommand,
 	decideEditValue,
 	draftConfirmPrompt,
 } from './draft/logic';
+import { parseDraftCommand } from './draft/command';
 import { DRAFT_COPY } from './draft/copy';
 import {
 	deleteDraft,
@@ -197,7 +199,14 @@ export class Coordinator extends Agent<Env> {
 
 		const editState = getEditState(sql, draft.entryId);
 
-		if (editState) {
+		// A confirm/edit/discard command wins over the edit-value path, ALWAYS.
+		// ADR-0004 §2 normalizes a button tap to `{kind:'text', text:<option.id>}`,
+		// so without this the [Batal] we now render during an edit arrives as the
+		// text "discard", falls into parseEditField -> null -> retry, and does
+		// nothing. Ticket 24's own § Question names the cause: parseDraftCommand
+		// already understands "batal", it was simply unreachable from edit mode.
+		// A visible button that does nothing is worse than no button.
+		if (editState && parseDraftCommand(text) === null) {
 			const decision = decideEditValue(draft, editState, text, locale);
 			if (decision.kind === 'set_edit_field') {
 				setEditState(sql, draft.entryId, decision.field);
@@ -264,14 +273,23 @@ export class Coordinator extends Agent<Env> {
 	private async handleTransactionMessage(
 		message: NormalizedInboundMessage,
 	): Promise<OutboundAction> {
-		if (message.kind !== 'text') {
-			return { kind: 'text', text: `[${message.kind}]` };
-		}
-
 		const { locale, timezone } = await this.getUserProfile();
 
 		const sql = this.sqlTag.bind(this);
 		const pendingDraft = mostRecentDraft(sql);
+
+		// Ticket 31: every reply below is composed while `pendingDraft` may still
+		// be pending, so each one goes through keepEscapeHatch. The non-text
+		// acknowledgement moved BELOW the draft read for exactly that reason — a
+		// photo sent mid-draft used to strip the buttons.
+		if (message.kind !== 'text') {
+			return keepEscapeHatch(
+				{ kind: 'text', text: `[${message.kind}]` },
+				locale,
+				pendingDraft,
+			);
+		}
+
 		if (pendingDraft) {
 			const response = await this.handlePendingDraft(pendingDraft, message.text, locale);
 			if (response) return response;
@@ -286,7 +304,7 @@ export class Coordinator extends Agent<Env> {
 		// this stays a branch on an outcome rather than a try/catch here — the
 		// Coordinator never needs to know env.AI exists.
 		if (outcome.kind === 'call_failed') {
-			return systemTroubleReply(locale);
+			return keepEscapeHatch(systemTroubleReply(locale), locale, pendingDraft);
 		}
 		const result = outcome.result;
 
@@ -307,7 +325,11 @@ export class Coordinator extends Agent<Env> {
 			);
 		}
 
-		return buildParseReply(result, locale, timezone);
+		return keepEscapeHatch(
+			buildParseReply(result, locale, timezone),
+			locale,
+			pendingDraft,
+		);
 	}
 
 	private async getUserProfile(): Promise<{ locale: Locale; timezone: string }> {
