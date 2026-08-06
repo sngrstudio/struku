@@ -155,10 +155,19 @@ yang bikin dia berhenti.*
     transaksi **sudah pulih dan terbukti** — lihat
     [30](issues/30-recovery-slice.md). Tapi bot
     **masih menjebak di mode edit** ([24](issues/24-edit-mode-escape.md)).
-    Tambalan cepat ditawarkan dan **ditolak** — konsisten dengan freeze.
     Konsekuensinya: pemakaian harian nyata praktis terhenti, jadi fog yang
     menunggu "bukti pemakaian" (beban konfirmasi, akurasi kategori, kategori
-    kustom, budget) **tidak akan bergerak** sampai freeze dicabut.
+    kustom, budget) **tidak akan bergerak** — dan ini **bukan soal kesabaran**,
+    buktinya secara struktural tidak mungkin terkumpul.
+    ✅ **Obatnya sudah diputuskan 2026-08-05** ([24](issues/24-edit-mode-escape.md)
+    resolved) dan berbentuk [31 · Slice lantai tombol draft](issues/31-draft-button-floor.md)
+    — **nol panggilan AI, nol arsitektur dikunci**, memakai ulang mekanisme tombol
+    yang sudah terbukti di `6d432d89`. ⚠️ **Belum boleh dimulai:** butuh
+    **pengecualian freeze #2** (jatah nol setelah #1 habis di
+    [30](issues/30-recovery-slice.md)) **dan** override eksekusi baru. Tambalan
+    tombol pernah ditawarkan dan **ditolak dua kali** saat freeze masih menahan
+    segalanya; yang berubah sejak itu adalah pencatatan sudah pulih, jadi 24
+    menjadi penyumbat tunggal yang tersisa. **Tetap keputusan pemilik repo.**
 
 ## Decisions so far
 
@@ -308,7 +317,7 @@ yang bikin dia berhenti.*
   pesan/hari gratis), jadi memilih SEA-LION yang 7,8× lebih mahal murah dibayar; dan
   **18 model dideprekasi 30 Mei 2026** dengan daftar yang gagal diekstrak — wajib
   diverifikasi sebelum mengunci kandidat. Probe **sudah terisi** di
-  [`test/live/reply-composer-probe.test.ts`](../../test/live/reply-composer-probe.test.ts),
+  ``test/live/reply-composer-probe.test.ts``,
   typecheck bersih, 77/77 tetap hijau. Kanal terdegradasi seperti
   [21](issues/21-vendored-skill-doc-reliability.md).
   ✅ **PROBE SUDAH DIJALANKAN pemilik repo (2026-08-03)** — tiket ini sekarang
@@ -475,6 +484,36 @@ yang bikin dia berhenti.*
   lunas** — ia teks balasan, tak terlihat dari D1 maupun tail. ⚠️ **Freeze tidak
   dicabut** dan override eksekusi habis bersama slice-nya; map kembali planning-only.
 
+- [24 · Terjebak di mode edit: tidak ada jalan keluar](issues/24-edit-mode-escape.md)
+  (grilling) — **lantainya tombol, bukan model.** Selama draft menggantung, setiap
+  balasan membawa `[Konfirmasi][Edit][Batal]`; selama tombolnya terlihat user
+  **secara logika tidak bisa terjebak**. **Hitungan menyerah ditawarkan dan
+  ditolak**, dua alasan: lantai yang butuh model **bukan lantai** (15 butir 4
+  menerima `env.AI` bisa mati), dan memulangkan user ke prompt konfirmasi setelah
+  3× salah **tidak membuatnya berhasil mengubah** — itu memutar, bukan jalan
+  keluar. **Temuan kode lebih buruk dari yang tiket tulis:** dari sepuluh balasan
+  alur draft **hanya satu** yang membawa tombol
+  ([`logic.ts:47`](../../src/worker/draft/logic.ts)), jadi tombol hilang **detik
+  user menekan Edit**, bukan saat retry gagal — satu langkah lebih awal.
+  **`editState` tetap ada sebagai data, otoritasnya dicabut** — opsi menghapusnya
+  ditawarkan dan **tidak dipilih**, karena ia mengerjakan dua hal yang mudah
+  dikira satu (mem-bypass penafsiran = jahat; menyimpan field yang sedang diedit =
+  berguna), dan menghapus keduanya **memaksa fog "ringkasan ke panggilan-1"
+  ditutup sekarang**. **Dua maksud draft dibedakan dan asimetris:** salah membaca
+  *"tetap sama"* jadi *batal* **membuang draft**, sebaliknya cuma memunculkan
+  tombol lagi — jadi maksud yang merusak menuntut keyakinan lebih tinggi
+  (⚠️ prinsipnya diputuskan, **mekanismenya belum**). Butir 3+4 digraduasikan jadi
+  [31 · Slice lantai tombol draft](issues/31-draft-button-floor.md) — **nol AI,
+  nol arsitektur dikunci**, dan ia yang membuka empat fog yang menunggu bukti
+  pemakaian harian **yang selama ini tidak mungkin terkumpul**. Butir 1+2
+  dititipkan ke implementasi [15](issues/15-conversational-surface.md) bersama
+  substansi yang dulu bernama 23A — *"kalimat bebas saat konfirmasi"* dan
+  *"kalimat bebas saat mode edit"* itu **satu mesin, bukan dua**, dan jaring
+  pengaman 23A sudah **mati dua kali**. ⚠️ **Slice 31 belum boleh dimulai:**
+  butuh **pengecualian freeze #2** (jatah nol) **dan** override eksekusi baru —
+  keduanya keputusan terpisah milik pemilik repo, tidak ikut terjawab oleh tiket
+  ini.
+
 ## Not yet specified
 
 <!-- in-scope fog; graduates into tickets as the frontier advances -->
@@ -512,6 +551,12 @@ yang bikin dia berhenti.*
   dengan [23](issues/23-draft-confirmation-surface.md) bagian A**; pertimbangkan
   menggabungkan implementasinya, karena 23A menjadikan "jatuh ke menu lama"
   sebagai jaring pengaman padahal **menu lama itulah yang menjebak**.
+  ✅ **Resolved 2026-08-05** — lihat Decisions so far. Yang perlu dibawa dari
+  situ: jalan keluarnya ternyata **tidak** lewat model melainkan **tombol** (yang
+  lewat model tetap ada, tapi sebagai lapis di atasnya, bukan lantainya), dan
+  arahan "gabungkan dengan 23A" dijalankan dalam bentuk yang berbeda dari
+  dugaannya — 23A sudah dibatalkan [15](issues/15-conversational-surface.md), jadi
+  yang digabung adalah **substansinya di implementasi 15**, bukan tiketnya.
 
 - **Lubang deteksi: menekan Konfirmasi tanpa membaca.** Digraduasikan dari
   temuan [23](issues/23-draft-confirmation-surface.md) (2026-08-01) dan **masih
@@ -615,7 +660,7 @@ yang bikin dia berhenti.*
   setelah [25](issues/25-small-model-for-reply-composition.md)" **tidak terpenuhi**:
   25 resolved tanpa memilih model. Syaratnya sekarang **hasil probe**, bukan
   resolusi tiket. Probe-nya
-  ([`test/live/reply-composer-probe.test.ts`](../../test/live/reply-composer-probe.test.ts))
+  (``test/live/reply-composer-probe.test.ts``)
   sudah ikut mengukur disiplin slot — ia menandai model yang menulis digit ke
   `reply` alih-alih membiarkan `{amount}` — jadi bahan bakunya akan ada begitu
   pemilik repo menjalankannya.

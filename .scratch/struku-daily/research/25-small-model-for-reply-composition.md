@@ -446,7 +446,7 @@ Yang dinyatakan dokumentasi [DOC]:
 **Kenapa ini persis mengenai desain panggilan-2 Struku.** System prompt panggilan-2
 **statis** (persona + aturan slot), sedangkan yang berubah tiap giliran adalah hasil
 business process + ringkasan. Bentuk prompt di
-[`test/live/reply-composer-probe.test.ts`](../../../test/live/reply-composer-probe.test.ts)
+``test/live/reply-composer-probe.test.ts``
 — system statis, user turn dinamis — **sudah benar** untuk prefix caching.
 
 **Tapi ada jebakan yang mengancam 15 butir 6 secara langsung.** Butir 6 memutuskan nama,
@@ -595,7 +595,7 @@ Dua mitigasi, keduanya murah:
    kebetulan.
 2. **Batasi panjang `summary` lewat instruksi eksplisit** ("satu kalimat, maksimal 20
    kata"). Prompt di
-   [`test/live/reply-composer-probe.test.ts`](../../../test/live/reply-composer-probe.test.ts)
+   ``test/live/reply-composer-probe.test.ts``
    sudah menulis *"a one-line running summary"* — pertahankan, dan pertimbangkan
    menambahkan batas kata numerik.
 
@@ -607,7 +607,7 @@ Dua mitigasi, keduanya murah:
 (latency) dan 4 (kualitas generasi Bahasa Indonesia) **tidak dijawab dokumentasi untuk
 model mana pun**, jadi tidak ada peringkat yang bisa dijatuhkan dari [DOC] saja.
 Isi `CANDIDATES` di
-[`test/live/reply-composer-probe.test.ts`](../../../test/live/reply-composer-probe.test.ts)
+``test/live/reply-composer-probe.test.ts``
 dengan urutan di bawah.
 
 ### Kandidat utama — `@cf/zai-org/glm-4.7-flash`
@@ -684,7 +684,7 @@ normalisasi `.response`, satu permukaan deprekasi** — dan mengingat bekas luka
 
 **Tidak ada kredensial Cloudflare di environment riset ini** — `wrangler whoami` =
 not authenticated — jadi `npm run test:live` **mustahil dijalankan dari sini**.
-[`test/live/reply-composer-probe.test.ts`](../../../test/live/reply-composer-probe.test.ts)
+``test/live/reply-composer-probe.test.ts``
 menunggu pemilik repo. Daftar berikut adalah **seluruh** pertanyaan yang riset
 dokumentasi tidak bisa tutup:
 
@@ -753,7 +753,7 @@ Sumber internal repo:
 
 - [`docs/adr/0005-ai-text-parsing-contract.md`](../../../docs/adr/0005-ai-text-parsing-contract.md) — [ADR-0005]
 - [`src/worker/parsing/workers-ai-text-parser.ts`](../../../src/worker/parsing/workers-ai-text-parser.ts)
-- [`test/live/reply-composer-probe.test.ts`](../../../test/live/reply-composer-probe.test.ts)
+- ``test/live/reply-composer-probe.test.ts``
 
 **Tidak dipakai sebagai sumber angka:**
 `.agents/skills/cloudflare/references/workers-ai/README.md` (lihat § Sumber yang sengaja

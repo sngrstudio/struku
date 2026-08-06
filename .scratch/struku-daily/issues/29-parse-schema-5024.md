@@ -551,7 +551,7 @@ tapi "saat". Ini menjadikan pertanyaan 5 **prasyarat arsitektur yang sudah
 diputuskan**, bukan pengerasan opsional.
 
 Ironinya: logika yang benar **sudah ditulis** — `normalize()` di
-[`test/live/reply-composer-probe.test.ts:78-105`](../../../test/live/reply-composer-probe.test.ts)
+``test/live/reply-composer-probe.test.ts:78-105``
 menangani kedua bentuk — tapi ia hidup di file probe yang berstatus sementara dan
 sudah dijadwalkan dihapus. Yang dipakai produksi tidak punya.
 

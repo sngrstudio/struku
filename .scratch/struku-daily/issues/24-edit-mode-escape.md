@@ -1,7 +1,7 @@
 # 24 — Terjebak di mode edit: tidak ada jalan keluar
 
 Type: grilling
-Status: claimed
+Status: resolved
 Blocked by: —
 
 ## Question
@@ -187,3 +187,138 @@ Bug ini tetap **hidup di produksi** (`7436f2b5`) dan tetap **memblokir verifikas
 produksi** [22](22-persist-entry-description.md) dan
 [23B](23-draft-confirmation-surface.md) — lihat § Catatan di atas. Freeze belum
 dicabut.
+
+## Answer
+
+Digrilling 2026-08-05. Lima keputusan. **Mekanisme di § Question diverifikasi masih
+berlaku** setelah slice pemulihan (tiket 30) — `editState` di
+[`coordinator.ts:198-201`](../../../src/worker/coordinator.ts) masih short-circuit,
+[`logic.ts:125-127`](../../../src/worker/draft/logic.ts) masih `retry` tanpa batas,
+`"batal"` masih ada di `DISCARD_SYNONYMS` tapi tetap tak terjangkau.
+
+### 1. `editState` tetap ada sebagai **data**, otoritasnya **dicabut**
+
+Panggilan-1 selalu jalan lebih dulu. `editState` tidak lagi mem-bypass penafsiran;
+ia hanya menyuplai konteks — *"barusan bot menanyakan field mana"*.
+
+Opsi **menghapus `editState` sepenuhnya ditawarkan dan tidak dipilih.** Alasannya
+ongkos yang ditunjukkan sebelum keputusan dicatat: `editState` mengerjakan **dua**
+hal yang mudah dikira satu — mem-bypass penafsiran (yang jahat) **dan** menyimpan
+field mana yang sedang diedit (yang berguna). Menghapus keduanya memaksa
+panggilan-1 menyimpulkan field dari konteks percakapan, dan itu **memaksa fog
+"apakah ringkasan percakapan diumpankan ke panggilan-1" ditutup sekarang** —
+padahal [15](15-conversational-surface.md) sengaja meninggalkannya terbuka karena
+panggilan-1 kini satu-satunya yang menentukan uang tercatat.
+
+⚠️ **Risiko yang diterima sadar:** state-nya tetap ada, jadi bypass-nya bisa
+dikembalikan orang lain tanpa sadar. **Itu dijaga test, bukan niat baik** — siapa
+pun yang membangun ini wajib meninggalkan test yang gagal kalau `editState`
+mem-bypass penafsiran lagi.
+
+### 2. Dua maksud draft dibedakan, dan **asimetris**
+
+`batal` (buang draft) **≠** `tetap sama` (kembali ke konfirmasi tanpa mengubah).
+Menyatukan keduanya berarti *"tetap sama"* dibaca sebagai batal — dan **catatan
+user terbuang justru saat ia bilang sudah benar**.
+
+Kedua salahnya **tidak sama berat**, dan itu yang menentukan bentuknya:
+
+| Salah baca | Akibat |
+|---|---|
+| `tetap sama` → dibaca `batal` | 💀 draft terbuang, user mengetik ulang dari nol |
+| `batal` → dibaca `tetap sama` | 😐 tombol muncul lagi, user menekan Batal |
+
+Jadi **maksud yang merusak menuntut keyakinan lebih tinggi**; saat ragu, pilih yang
+tidak merusak.
+
+⚠️ **Prinsipnya diputuskan, mekanismenya belum** — ambang keyakinan, atau
+konfirmasi ulang sebelum membuang, belum ada bentuknya. Ini **satu-satunya**
+pertahanan draft terhadap salah tebak, dan ia menyeberang ke implementasi
+[15](15-conversational-surface.md) (lihat butir 5).
+
+⚠️ Enum `intent` hari ini masih lima (`transaction`, `budget`, `category`, `query`,
+`unknown`) — belum memuat konsep "ubah". Menambah dua maksud draft ini **menambah
+butir ke revisi ADR-0005 yang sudah mengantre**.
+
+### 3. Lantainya **tombol selalu ada**, tanpa hitungan menyerah
+
+Selama draft menggantung, **setiap** balasan membawa `[Konfirmasi] [Edit] [Batal]`.
+Selama tombolnya terlihat, user secara logika **tidak bisa terjebak** — tidak ada
+lagi menunggu 30 menit.
+
+**Hitungan menyerah ditawarkan dan ditolak**, dua alasan:
+
+1. **Lantai yang butuh model bukan lantai.** [15](15-conversational-surface.md)
+   butir 4 menerima bahwa kalau `env.AI` mati Struku tidak bisa mencatat apa pun —
+   hitungan menyerah butuh bot yang hidup untuk menghitung; tombol tidak butuh apa
+   pun.
+2. **Ia tidak menyelesaikan keluhannya.** User yang ingin *mengubah* lalu salah
+   dibaca 3× dan dipulangkan ke prompt konfirmasi **tetap belum berhasil
+   mengubah** — itu memutar, bukan jalan keluar, dan menambah satu bagian mesin
+   lagi.
+
+**Temuan kode yang lebih buruk dari yang tiket tulis:** dari sepuluh balasan alur
+draft, **hanya satu yang membawa tombol** —
+[`logic.ts:47`](../../../src/worker/draft/logic.ts), prompt konfirmasi. Sembilan
+sisanya `kind: "text"`. Jadi tombol **tidak hilang saat retry gagal; ia hilang
+detik user menekan Edit** ([`logic.ts:103`](../../../src/worker/draft/logic.ts),
+`editWhichField`). Badan tiket menulisnya terjadi di balasan retry — itu **satu
+langkah terlambat**.
+
+Ongkosnya: sembilan balasan berubah `text` → `choice`. Mekanismenya **sudah
+terbukti di produksi** (prompt konfirmasi memakainya), jadi ini pemakaian ulang,
+bukan barang baru. ⚠️ Belum diperiksa apakah kesembilannya pantas membawa **set
+tombol yang sama**.
+
+### 4. Tombol dipasang **sekarang, sebagai slice tersendiri**
+
+Nol panggilan AI, nol arsitektur dikunci — apa pun yang terjadi pada `editState`
+dan panggilan-1 nanti, tombol tetap tombol.
+
+Alasan memilih sekarang, bukan menunggu arsitektur
+[15](15-conversational-surface.md): **empat fog map menunggu "bukti pemakaian
+harian"** (beban konfirmasi, akurasi kategori, kategori kustom, budget) dan
+semuanya **beku secara struktural** — buktinya tidak mungkin terkumpul selama
+menekan Edit menjebak 30 menit. Menunggu bukti yang tidak mungkin datang bukan
+sabar, itu macet. Slice ini juga **membuka jalan** bagi utang verifikasi produksi
+[22](22-persist-entry-description.md) dan
+[23B](23-draft-confirmation-surface.md).
+
+→ digraduasikan jadi
+[31 · Slice lantai tombol draft](31-draft-button-floor.md).
+
+⚠️ **Dua izin yang BELUM diberikan dan tidak ikut terjawab oleh keputusan ini:**
+**pengecualian freeze #2** (jatah sekarang nol — #1 habis di tiket 30) dan
+**override eksekusi** (map kembali planning-only). Keduanya keputusan terpisah
+milik pemilik repo.
+
+### 5. Bagian yang butuh model dititipkan ke implementasi [15](15-conversational-surface.md)
+
+Butir 1 dan 2 tidak bisa dibangun sebelum panggilan-1 ada. Keduanya menyeberang ke
+implementasi 15 — **bersama substansi yang dulu bernama 23A**, yang sudah
+dibatalkan 15 dan diserap panggilan-1.
+
+Alasannya: *"kalimat bebas saat konfirmasi"* (dulu 23A) dan *"kalimat bebas saat
+mode edit"* (sisa tiket ini) adalah **satu mesin, bukan dua**. Membangun terpisah =
+dua tempat menebak maksud dalam satu alur, yang bisa berbeda pendapat.
+
+Alasan kedua, lebih penting: **jaring pengaman 23A sudah mati dua kali** — tiket
+ini menemukan menu lama itu sendiri menjebak, lalu 15 butir 4 menghapus fallback
+deterministik sepenuhnya. Digabung, itu terlihat dan terbetulkan; dipisah, ia
+dibangun di atas jaring yang bolong.
+
+⚠️ **Ongkos yang diterima:** implementasi 15 jadi lebih gemuk — dua panggilan
+model, revisi ADR-0005 lima butir, **plus** dua maksud draft dan perombakan
+`editState`. Slice besar lebih mudah meleset. Kalau kegemukan, **pecah saat
+`/to-spec`** — bukan sekarang.
+
+## Yang belum tertutup
+
+1. **Apakah ringkasan percakapan diumpankan ke panggilan-1** — tetap fog. Butir 1
+   **menunda**-nya, bukan menjawabnya; ia akan menagih saat implementasi 15.
+2. **Mekanisme "keyakinan lebih tinggi" untuk maksud yang merusak** (butir 2).
+   Prinsip ada, bentuk tidak.
+3. **Apakah kesembilan balasan pantas membawa set tombol yang sama** (butir 3).
+4. **Verifikasi produksi [22](22-persist-entry-description.md) dan
+   [23B](23-draft-confirmation-surface.md)** hanya **dibukakan jalannya** oleh
+   slice ini, belum lunas — masih butuh pemilik repo mengetik di Telegram.

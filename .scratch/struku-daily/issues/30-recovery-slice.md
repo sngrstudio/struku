@@ -32,7 +32,7 @@ bergerak sampai bot bisa mencatat lagi. Tanpa tiket ini map-nya melingkar.
 3. **Satu boundary normalisasi respons** — mengerti `{ response }` (string maupun
    object) dan `choices[0].message.content`; bentuk tak dikenal memakai hasil gagal
    dari butir 2, **tidak** runtuh jadi `""`. Logika yang benar sudah ada di
-   `normalize()` [`test/live/reply-composer-probe.test.ts`](../../../test/live/reply-composer-probe.test.ts)
+   `normalize()` ``test/live/reply-composer-probe.test.ts``
    — pindahkan ke produksi, jangan tulis ulang dari nol.
 
 Ditambah, dari keputusan pertanyaan 4 tiket 29:
